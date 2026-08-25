@@ -8,7 +8,7 @@ st.set_page_config(
 )
 
 st.title("🧱 Rock Block")
-st.caption("← → 키 또는 버튼으로 패들을 움직이세요. ★ 블록은 멀티볼 블록입니다.")
+st.caption("← → 키 또는 버튼으로 이동 | ★ = 멀티볼 블록")
 
 game = """
 <!DOCTYPE html>
@@ -27,14 +27,1893 @@ body {
 }
 
 .info {
-    font-size: 18px;
+    font-size: 16px;
     margin-bottom: 8px;
+    line-height: 1.8;
 }
 
 canvas {
     display: block;
     margin: auto;
     background: #181818;
+    border: 2px solid #555;
+    border-radius: 8px;
+    max-width: 100%;
+    touch-action: none;
+}
+
+.controls {
+    margin-top: 10px;
+}
+
+.controls button {
+    width: 125px;
+    height: 52px;
+    margin: 5px;
+    font-size: 25px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+#restart {
+    width: 170px;
+    height: 42px;
+    font-size: 16px;
+}
+
+.legend {
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="info">
+
+라운드:
+<span id="round">1</span>
+
+&nbsp;&nbsp;
+
+점수:
+<span id="score">0</span>
+
+&nbsp;&nbsp;
+
+최고점수:
+<span id="highScore">0</span>
+
+<br>
+
+최고라운드:
+<span id="highRound">1</span>
+
+&nbsp;&nbsp;
+
+❤️
+<span id="lives">3</span>
+
+</div>
+
+<canvas
+    id="gameCanvas"
+    width="640"
+    height="500">
+</canvas>
+
+<div class="legend">
+    ★ = 멀티볼 블록
+</div>
+
+<div class="controls">
+
+    <button id="left">◀</button>
+    <button id="right">▶</button>
+
+</div>
+
+<button id="restart">
+    다시 시작
+</button>
+
+
+<script>
+
+const canvas =
+    document.getElementById("gameCanvas");
+
+const ctx =
+    canvas.getContext("2d");
+
+const scoreElement =
+    document.getElementById("score");
+
+const highScoreElement =
+    document.getElementById("highScore");
+
+const highRoundElement =
+    document.getElementById("highRound");
+
+const roundElement =
+    document.getElementById("round");
+
+const livesElement =
+    document.getElementById("lives");
+
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+
+
+/* =====================================
+   게임 상태
+===================================== */
+
+let score = 0;
+
+let lives = 3;
+
+let round = 1;
+
+let running = true;
+
+let leftPressed = false;
+
+let rightPressed = false;
+
+
+/* =====================================
+   최고 기록
+===================================== */
+
+let highScore =
+    Number(
+        localStorage.getItem(
+            "rockBlockHighScore"
+        )
+    ) || 0;
+
+let highRound =
+    Number(
+        localStorage.getItem(
+            "rockBlockHighRound"
+        )
+    ) || 1;
+
+
+highScoreElement.textContent =
+    highScore;
+
+highRoundElement.textContent =
+    highRound;
+
+
+/* =====================================
+   패들
+===================================== */
+
+const paddle = {
+
+    width: 105,
+
+    height: 12,
+
+    x: WIDTH / 2 - 52
+
+};
+
+
+/*
+라운드별 패들 속도
+
+1라운드 = 14
+2라운드 = 16
+3라운드 = 18
+...
+최대 = 30
+*/
+
+function getPaddleSpeed() {
+
+    return Math.min(
+        14 + (round - 1) * 2,
+        30
+    );
+
+}
+
+
+/* =====================================
+   메인볼
+===================================== */
+
+const mainBall = {
+
+    x: WIDTH / 2,
+
+    y: HEIGHT - 65,
+
+    radius: 9,
+
+    dx: 4.5,
+
+    dy: -4.5,
+
+    active: true
+
+};
+
+
+/*
+라운드별 공 속도
+
+1 = 4.5
+2 = 5.2
+3 = 5.9
+...
+최대 = 10
+*/
+
+function getBallSpeed() {
+
+    return Math.min(
+        4.5 + (round - 1) * 0.7,
+        10
+    );
+
+}
+
+
+/* =====================================
+   멀티볼
+===================================== */
+
+let multiBalls = [];
+
+
+/*
+멀티볼 속도도 라운드에 따라 증가
+*/
+
+function getMultiBallSpeed() {
+
+    return Math.min(
+        5.5 + (round - 1) * 0.5,
+        9
+    );
+
+}
+
+
+/* =====================================
+   블록 설정
+===================================== */
+
+const rows = 6;
+
+const columns = 9;
+
+const brickWidth = 62;
+
+const brickHeight = 24;
+
+const brickPadding = 7;
+
+
+/*
+맨 위에 공간을 둠
+*/
+
+const brickTop = 70;
+
+const brickLeft = 20;
+
+let bricks = [];
+
+
+/* =====================================
+   블록 HP 생성
+===================================== */
+
+function getBrickHP() {
+
+    const random =
+        Math.random();
+
+
+    /*
+    1라운드
+
+    낮은 숫자 위주
+    */
+
+    if (round === 1) {
+
+        if (random < 0.65) {
+            return 1;
+        }
+
+        if (random < 0.95) {
+            return 2;
+        }
+
+        return 3;
+    }
+
+
+    /*
+    2~3라운드
+    */
+
+    if (round <= 3) {
+
+        if (random < 0.45) {
+            return 1;
+        }
+
+        if (random < 0.85) {
+            return 2;
+        }
+
+        return 3;
+    }
+
+
+    /*
+    4라운드 이후
+
+    점점 강해짐
+    */
+
+    if (random < 0.25) {
+        return 1;
+    }
+
+    if (random < 0.65) {
+        return 2;
+    }
+
+    if (random < 0.90) {
+        return 3;
+    }
+
+
+    return Math.min(
+        5,
+        4 + Math.floor(
+            (round - 4) / 3
+        )
+    );
+
+}
+
+
+/* =====================================
+   블록 생성
+===================================== */
+
+function createBricks() {
+
+    bricks = [];
+
+
+    for (
+        let r = 0;
+        r < rows;
+        r++
+    ) {
+
+        bricks[r] = [];
+
+
+        for (
+            let c = 0;
+            c < columns;
+            c++
+        ) {
+
+            const hp =
+                getBrickHP();
+
+
+            /*
+            라운드가 높아질수록
+            멀티볼 블록 증가
+            */
+
+            const multiChance =
+                Math.min(
+                    0.08 +
+                    round * 0.015,
+                    0.18
+                );
+
+
+            const multi =
+                Math.random() <
+                multiChance;
+
+
+            bricks[r][c] = {
+
+                x: 0,
+
+                y: 0,
+
+                hp: hp,
+
+                alive: true,
+
+                multi: multi
+
+            };
+
+        }
+
+    }
+
+}
+
+
+/* =====================================
+   메인볼 리셋
+===================================== */
+
+function resetMainBall() {
+
+    const speed =
+        getBallSpeed();
+
+
+    mainBall.x =
+        WIDTH / 2;
+
+    mainBall.y =
+        HEIGHT - 65;
+
+
+    mainBall.dx =
+        Math.random() > 0.5
+        ? speed
+        : -speed;
+
+
+    mainBall.dy =
+        -speed;
+
+
+    mainBall.active =
+        true;
+
+
+    paddle.x =
+        WIDTH / 2 -
+        paddle.width / 2;
+
+}
+
+
+/* =====================================
+   멀티볼 생성
+===================================== */
+
+function createMultiBall() {
+
+    const speed =
+        getMultiBallSpeed();
+
+
+    /*
+    첫 번째 멀티볼
+    */
+
+    multiBalls.push({
+
+        x: mainBall.x,
+
+        y: mainBall.y,
+
+        radius: 8,
+
+        dx: -speed,
+
+        dy: -speed * 0.82,
+
+        active: true
+
+    });
+
+
+    /*
+    두 번째 멀티볼
+    */
+
+    multiBalls.push({
+
+        x: mainBall.x,
+
+        y: mainBall.y,
+
+        radius: 8,
+
+        dx: speed,
+
+        dy: -speed * 0.72,
+
+        active: true
+
+    });
+
+}
+
+
+/* =====================================
+   점수
+===================================== */
+
+function addScore(amount) {
+
+    score += amount;
+
+
+    scoreElement.textContent =
+        score;
+
+
+    /*
+    최고점수
+    */
+
+    if (score > highScore) {
+
+        highScore =
+            score;
+
+
+        highScoreElement.textContent =
+            highScore;
+
+
+        localStorage.setItem(
+            "rockBlockHighScore",
+            highScore
+        );
+
+    }
+
+
+    /*
+    최고라운드
+    */
+
+    if (round > highRound) {
+
+        highRound =
+            round;
+
+
+        highRoundElement.textContent =
+            highRound;
+
+
+        localStorage.setItem(
+            "rockBlockHighRound",
+            highRound
+        );
+
+    }
+
+}
+
+
+/* =====================================
+   블록 그리기
+===================================== */
+
+function drawBricks() {
+
+    for (
+        let r = 0;
+        r < rows;
+        r++
+    ) {
+
+        for (
+            let c = 0;
+            c < columns;
+            c++
+        ) {
+
+            const brick =
+                bricks[r][c];
+
+
+            if (!brick.alive) {
+                continue;
+            }
+
+
+            brick.x =
+                brickLeft +
+                c *
+                (
+                    brickWidth +
+                    brickPadding
+                );
+
+
+            brick.y =
+                brickTop +
+                r *
+                (
+                    brickHeight +
+                    brickPadding
+                );
+
+
+            /*
+            멀티볼 블록
+            */
+
+            if (brick.multi) {
+
+                ctx.fillStyle =
+                    "#008cff";
+
+            }
+
+            else if (brick.hp >= 4) {
+
+                ctx.fillStyle =
+                    "#9b59b6";
+
+            }
+
+            else if (brick.hp === 3) {
+
+                ctx.fillStyle =
+                    "#3498db";
+
+            }
+
+            else if (brick.hp === 2) {
+
+                ctx.fillStyle =
+                    "#f39c12";
+
+            }
+
+            else {
+
+                ctx.fillStyle =
+                    "#e74c3c";
+
+            }
+
+
+            ctx.fillRect(
+
+                brick.x,
+
+                brick.y,
+
+                brickWidth,
+
+                brickHeight
+
+            );
+
+
+            /*
+            HP 숫자
+            */
+
+            ctx.fillStyle =
+                "white";
+
+
+            ctx.font =
+                "bold 15px Arial";
+
+
+            ctx.textAlign =
+                "center";
+
+
+            ctx.textBaseline =
+                "middle";
+
+
+            ctx.fillText(
+
+                brick.hp,
+
+                brick.x +
+                brickWidth / 2,
+
+                brick.y +
+                brickHeight / 2
+
+            );
+
+
+            /*
+            멀티볼 표시
+            */
+
+            if (brick.multi) {
+
+                ctx.fillStyle =
+                    "#ffff00";
+
+
+                ctx.font =
+                    "bold 14px Arial";
+
+
+                ctx.fillText(
+
+                    "★",
+
+                    brick.x +
+                    brickWidth -
+                    9,
+
+                    brick.y + 9
+
+                );
+
+            }
+
+        }
+
+    }
+
+}
+
+
+/* =====================================
+   메인볼 그리기
+===================================== */
+
+function drawMainBall() {
+
+    if (!mainBall.active) {
+        return;
+    }
+
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+
+        mainBall.x,
+
+        mainBall.y,
+
+        mainBall.radius,
+
+        0,
+
+        Math.PI * 2
+
+    );
+
+
+    /*
+    메인볼 = 매우 밝은 노란색
+    */
+
+    ctx.fillStyle =
+        "#FFFF00";
+
+
+    ctx.shadowColor =
+        "#FFFF00";
+
+
+    ctx.shadowBlur =
+        14;
+
+
+    ctx.fill();
+
+
+    ctx.shadowBlur =
+        0;
+
+
+    ctx.closePath();
+
+}
+
+
+/* =====================================
+   멀티볼 그리기
+===================================== */
+
+function drawMultiBalls() {
+
+    for (
+        const ball of multiBalls
+    ) {
+
+        if (!ball.active) {
+            continue;
+        }
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+
+            ball.x,
+
+            ball.y,
+
+            ball.radius,
+
+            0,
+
+            Math.PI * 2
+
+        );
+
+
+        /*
+        멀티볼 = 파란색
+        */
+
+        ctx.fillStyle =
+            "#00BFFF";
+
+
+        ctx.shadowColor =
+            "#00BFFF";
+
+
+        ctx.shadowBlur =
+            8;
+
+
+        ctx.fill();
+
+
+        ctx.shadowBlur =
+            0;
+
+
+        ctx.closePath();
+
+    }
+
+}
+
+
+/* =====================================
+   패들
+===================================== */
+
+function drawPaddle() {
+
+    ctx.fillStyle =
+        "#4CAF50";
+
+
+    ctx.fillRect(
+
+        paddle.x,
+
+        HEIGHT - 30,
+
+        paddle.width,
+
+        paddle.height
+
+    );
+
+}
+
+
+/* =====================================
+   블록 충돌
+===================================== */
+
+function hitBrick(ball) {
+
+    for (
+        let r = 0;
+        r < rows;
+        r++
+    ) {
+
+        for (
+            let c = 0;
+            c < columns;
+            c++
+        ) {
+
+            const brick =
+                bricks[r][c];
+
+
+            if (!brick.alive) {
+                continue;
+            }
+
+
+            if (
+
+                ball.x >
+                brick.x &&
+
+                ball.x <
+                brick.x +
+                brickWidth &&
+
+                ball.y >
+                brick.y &&
+
+                ball.y <
+                brick.y +
+                brickHeight
+
+            ) {
+
+
+                /*
+                HP 감소
+                */
+
+                brick.hp--;
+
+
+                /*
+                공 반사
+                */
+
+                ball.dy *= -1;
+
+
+                /*
+                완전히 파괴
+                */
+
+                if (
+                    brick.hp <= 0
+                ) {
+
+                    brick.alive =
+                        false;
+
+
+                    /*
+                    기본 점수
+                    */
+
+                    addScore(10);
+
+
+                    /*
+                    멀티볼 블록
+                    */
+
+                    if (
+                        brick.multi &&
+                        ball === mainBall
+                    ) {
+
+                        createMultiBall();
+
+
+                        /*
+                        보너스 점수
+                        */
+
+                        addScore(20);
+
+                    }
+
+                }
+
+
+                return;
+
+            }
+
+        }
+
+    }
+
+}
+
+
+/* =====================================
+   패들 충돌
+===================================== */
+
+function checkPaddleCollision(
+    ball
+) {
+
+    const paddleY =
+        HEIGHT - 30;
+
+
+    if (
+
+        ball.x >= paddle.x &&
+
+        ball.x <=
+        paddle.x +
+        paddle.width &&
+
+        ball.y +
+        ball.radius >=
+        paddleY &&
+
+        ball.y -
+        ball.radius <=
+        paddleY +
+        paddle.height &&
+
+        ball.dy > 0
+
+    ) {
+
+
+        /*
+        공을 위로 튕김
+        */
+
+        ball.dy =
+            -Math.abs(
+                ball.dy
+            );
+
+
+        /*
+        패들 맞은 위치에 따라
+        공의 방향 변화
+        */
+
+        const position =
+            (
+                ball.x -
+                (
+                    paddle.x +
+                    paddle.width / 2
+                )
+            )
+            /
+            (
+                paddle.width / 2
+            );
+
+
+        /*
+        라운드가 높을수록
+        최대 방향 변화도 조금 증가
+        */
+
+        const directionPower =
+            Math.min(
+                7 +
+                (round - 1) * 0.2,
+                9
+            );
+
+
+        ball.dx =
+            position *
+            directionPower;
+
+    }
+
+}
+
+
+/* =====================================
+   메인볼 업데이트
+===================================== */
+
+function updateMainBall() {
+
+    if (!mainBall.active) {
+        return;
+    }
+
+
+    mainBall.x +=
+        mainBall.dx;
+
+
+    mainBall.y +=
+        mainBall.dy;
+
+
+    /*
+    좌우 벽
+    */
+
+    if (
+
+        mainBall.x +
+        mainBall.radius >=
+        WIDTH ||
+
+        mainBall.x -
+        mainBall.radius <=
+        0
+
+    ) {
+
+        mainBall.dx *= -1;
+
+    }
+
+
+    /*
+    위쪽 벽
+    */
+
+    if (
+        mainBall.y -
+        mainBall.radius <=
+        0
+    ) {
+
+        mainBall.dy *= -1;
+
+    }
+
+
+    checkPaddleCollision(
+        mainBall
+    );
+
+
+    hitBrick(
+        mainBall
+    );
+
+
+    /*
+    메인볼이 바닥으로 떨어짐
+
+    ★ 여기서만 목숨 감소
+    */
+
+    if (
+        mainBall.y -
+        mainBall.radius >
+        HEIGHT
+    ) {
+
+        lives--;
+
+
+        livesElement.textContent =
+            lives;
+
+
+        if (lives <= 0) {
+
+            mainBall.active =
+                false;
+
+
+            running =
+                false;
+
+        }
+
+        else {
+
+            resetMainBall();
+
+        }
+
+    }
+
+}
+
+
+/* =====================================
+   멀티볼 업데이트
+===================================== */
+
+function updateMultiBalls() {
+
+    for (
+        const ball of multiBalls
+    ) {
+
+        if (!ball.active) {
+            continue;
+        }
+
+
+        ball.x +=
+            ball.dx;
+
+
+        ball.y +=
+            ball.dy;
+
+
+        /*
+        좌우 벽
+        */
+
+        if (
+
+            ball.x +
+            ball.radius >=
+            WIDTH ||
+
+            ball.x -
+            ball.radius <=
+            0
+
+        ) {
+
+            ball.dx *= -1;
+
+        }
+
+
+        /*
+        위쪽 벽
+        */
+
+        if (
+            ball.y -
+            ball.radius <=
+            0
+        ) {
+
+            ball.dy *= -1;
+
+        }
+
+
+        checkPaddleCollision(
+            ball
+        );
+
+
+        hitBrick(
+            ball
+        );
+
+
+        /*
+        멀티볼이 떨어져도
+        목숨 감소 X
+        */
+
+        if (
+            ball.y -
+            ball.radius >
+            HEIGHT
+        ) {
+
+            ball.active =
+                false;
+
+        }
+
+    }
+
+
+    /*
+    사라진 멀티볼 제거
+    */
+
+    multiBalls =
+        multiBalls.filter(
+            ball =>
+                ball.active
+        );
+
+}
+
+
+/* =====================================
+   남은 블록 확인
+===================================== */
+
+function getRemainingBricks() {
+
+    let remaining = 0;
+
+
+    for (
+        let r = 0;
+        r < rows;
+        r++
+    ) {
+
+        for (
+            let c = 0;
+            c < columns;
+            c++
+        ) {
+
+            if (
+                bricks[r][c].alive
+            ) {
+
+                remaining++;
+
+            }
+
+        }
+
+    }
+
+
+    return remaining;
+
+}
+
+
+/* =====================================
+   다음 라운드
+===================================== */
+
+function nextRound() {
+
+    /*
+    라운드 증가
+    */
+
+    round++;
+
+
+    roundElement.textContent =
+        round;
+
+
+    /*
+    최고 라운드 기록
+    */
+
+    if (
+        round > highRound
+    ) {
+
+        highRound =
+            round;
+
+
+        highRoundElement.textContent =
+            highRound;
+
+
+        localStorage.setItem(
+            "rockBlockHighRound",
+            highRound
+        );
+
+    }
+
+
+    /*
+    기존 멀티볼 제거
+    */
+
+    multiBalls = [];
+
+
+    /*
+    새로운 블록
+    */
+
+    createBricks();
+
+
+    /*
+    공을 새로운 속도로
+    다시 시작
+    */
+
+    resetMainBall();
+
+}
+
+
+/* =====================================
+   게임 업데이트
+===================================== */
+
+function update() {
+
+    if (!running) {
+        return;
+    }
+
+
+    /*
+    ★ 라운드별 패들 속도
+    */
+
+    const currentPaddleSpeed =
+        getPaddleSpeed();
+
+
+    /*
+    키보드 / 버튼
+    */
+
+    if (leftPressed) {
+
+        paddle.x -=
+            currentPaddleSpeed;
+
+    }
+
+
+    if (rightPressed) {
+
+        paddle.x +=
+            currentPaddleSpeed;
+
+    }
+
+
+    /*
+    패들 범위 제한
+    */
+
+    if (paddle.x < 0) {
+
+        paddle.x = 0;
+
+    }
+
+
+    if (
+        paddle.x +
+        paddle.width >
+        WIDTH
+    ) {
+
+        paddle.x =
+            WIDTH -
+            paddle.width;
+
+    }
+
+
+    updateMainBall();
+
+    updateMultiBalls();
+
+
+    /*
+    모든 블록 파괴
+    */
+
+    if (
+        getRemainingBricks() === 0
+    ) {
+
+        nextRound();
+
+    }
+
+}
+
+
+/* =====================================
+   화면 그리기
+===================================== */
+
+function draw() {
+
+    ctx.clearRect(
+
+        0,
+
+        0,
+
+        WIDTH,
+
+        HEIGHT
+
+    );
+
+
+    drawBricks();
+
+    drawMainBall();
+
+    drawMultiBalls();
+
+    drawPaddle();
+
+
+    /*
+    게임 종료 화면
+    */
+
+    if (!running) {
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.78)";
+
+
+        ctx.fillRect(
+
+            0,
+
+            0,
+
+            WIDTH,
+
+            HEIGHT
+
+        );
+
+
+        ctx.fillStyle =
+            "white";
+
+
+        ctx.textAlign =
+            "center";
+
+
+        ctx.font =
+            "bold 32px Arial";
+
+
+        ctx.fillText(
+
+            "GAME OVER",
+
+            WIDTH / 2,
+
+            HEIGHT / 2
+
+        );
+
+
+        ctx.font =
+            "18px Arial";
+
+
+        ctx.fillText(
+
+            "점수: " +
+            score,
+
+            WIDTH / 2,
+
+            HEIGHT / 2 + 40
+
+        );
+
+
+        ctx.fillText(
+
+            "도달 라운드: " +
+            round,
+
+            WIDTH / 2,
+
+            HEIGHT / 2 + 70
+
+        );
+
+
+        ctx.fillText(
+
+            "최고점수: " +
+            highScore,
+
+            WIDTH / 2,
+
+            HEIGHT / 2 + 100
+
+        );
+
+
+        return;
+
+    }
+
+
+    update();
+
+
+    requestAnimationFrame(
+        draw
+    );
+
+}
+
+
+/* =====================================
+   키보드
+===================================== */
+
+document.addEventListener(
+    "keydown",
+    function(event) {
+
+        if (
+            event.key ===
+            "ArrowLeft"
+        ) {
+
+            leftPressed =
+                true;
+
+        }
+
+
+        if (
+            event.key ===
+            "ArrowRight"
+        ) {
+
+            rightPressed =
+                true;
+
+        }
+
+    }
+);
+
+
+document.addEventListener(
+    "keyup",
+    function(event) {
+
+        if (
+            event.key ===
+            "ArrowLeft"
+        ) {
+
+            leftPressed =
+                false;
+
+        }
+
+
+        if (
+            event.key ===
+            "ArrowRight"
+        ) {
+
+            rightPressed =
+                false;
+
+        }
+
+    }
+);
+
+
+/* =====================================
+   모바일 / 마우스 버튼
+===================================== */
+
+const leftButton =
+    document.getElementById(
+        "left"
+    );
+
+const rightButton =
+    document.getElementById(
+        "right"
+    );
+
+
+/*
+왼쪽 버튼
+*/
+
+leftButton.addEventListener(
+    "mousedown",
+    function() {
+
+        leftPressed =
+            true;
+
+    }
+);
+
+
+leftButton.addEventListener(
+    "mouseup",
+    function() {
+
+        leftPressed =
+            false;
+
+    }
+);
+
+
+leftButton.addEventListener(
+    "mouseleave",
+    function() {
+
+        leftPressed =
+            false;
+
+    }
+);
+
+
+leftButton.addEventListener(
+    "touchstart",
+    function(event) {
+
+        event.preventDefault();
+
+        leftPressed =
+            true;
+
+    }
+);
+
+
+leftButton.addEventListener(
+    "touchend",
+    function(event) {
+
+        event.preventDefault();
+
+        leftPressed =
+            false;
+
+    }
+);
+
+
+/*
+오른쪽 버튼
+*/
+
+rightButton.addEventListener(
+    "mousedown",
+    function() {
+
+        rightPressed =
+            true;
+
+    }
+);
+
+
+rightButton.addEventListener(
+    "mouseup",
+    function() {
+
+        rightPressed =
+            false;
+
+    }
+);
+
+
+rightButton.addEventListener(
+    "mouseleave",
+    function() {
+
+        rightPressed =
+            false;
+
+    }
+);
+
+
+rightButton.addEventListener(
+    "touchstart",
+    function(event) {
+
+        event.preventDefault();
+
+        rightPressed =
+            true;
+
+    }
+);
+
+
+rightButton.addEventListener(
+    "touchend",
+    function(event) {
+
+        event.preventDefault();
+
+        rightPressed =
+            false;
+
+    }
+);
+
+
+/* =====================================
+   다시 시작
+===================================== */
+
+document
+.getElementById("restart")
+.addEventListener(
+    "click",
+    function() {
+
+        score = 0;
+
+        lives = 3;
+
+        round = 1;
+
+        running = true;
+
+        multiBalls = [];
+
+
+        scoreElement.textContent =
+            score;
+
+
+        livesElement.textContent =
+            lives;
+
+
+        roundElement.textContent =
+            round;
+
+
+        createBricks();
+
+        resetMainBall();
+
+
+        requestAnimationFrame(
+            draw
+        );
+
+    }
+);
+
+
+/* =====================================
+   게임 시작
+===================================== */
+
+createBricks();
+
+resetMainBall();
+
+draw();
+
+</script>
+
+</body>
+</html>
+"""
+
+components.html(
+    game,
+    height=700,
+    scrolling=False
+)    background: #181818;
     border: 2px solid #555;
     border-radius: 8px;
     max-width: 100%;
