@@ -45,6 +45,8 @@ canvas {
     margin-top: 10px;
 }
 
+
+
 .controls button {
     width: 120px;
     height: 50px;
