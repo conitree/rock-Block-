@@ -8,33 +8,1047 @@ st.set_page_config(
 )
 
 st.title("🧱 Rock Block")
-st.caption("← → 키 또는 버튼으로 이동 | ★ = 멀티볼 블록")
 
-game = """
+html = r'''
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 
 <style>
-
 body {
     margin: 0;
-    background: #101010;
+    background: #111;
     color: white;
     font-family: Arial, sans-serif;
     text-align: center;
 }
 
-.info {
+#info {
     font-size: 16px;
-    margin-bottom: 8px;
-    line-height: 1.8;
+    margin: 8px;
 }
 
 canvas {
     display: block;
     margin: auto;
+    background: #181818;
+    border: 2px solid #555;
+    border-radius: 8px;
+    max-width: 100%;
+    touch-action: none;
+}
+
+button {
+    width: 120px;
+    height: 50px;
+    margin: 8px 4px;
+    font-size: 24px;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+#restart {
+    width: 160px;
+    height: 40px;
+    font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="info">
+    라운드 <span id="round">1</span>
+    &nbsp; | &nbsp;
+    점수 <span id="score">0</span>
+    &nbsp; | &nbsp;
+    최고점수 <span id="best">0</span>
+    &nbsp; | &nbsp;
+    ❤️ <span id="lives">3</span>
+</div>
+
+<canvas id="game" width="640" height="500"></canvas>
+
+<div>
+    ★ 파란색 블록 = 멀티볼
+</div>
+
+<div>
+    <button id="left">◀</button>
+    <button id="right">▶</button>
+</div>
+
+<button id="restart">다시 시작</button>
+
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const W = canvas.width;
+const H = canvas.height;
+
+
+/* ==========================
+   UI
+========================== */
+
+const roundText = document.getElementById("round");
+const scoreText = document.getElementById("score");
+const bestText = document.getElementById("best");
+const livesText = document.getElementById("lives");
+
+
+/* ==========================
+   기록
+========================== */
+
+let score = 0;
+let lives = 3;
+let round = 1;
+
+let best =
+    Number(localStorage.getItem("rock_block_best")) || 0;
+
+bestText.textContent = best;
+
+
+/* ==========================
+   입력
+========================== */
+
+let left = false;
+let right = false;
+
+
+/* ==========================
+   패들
+========================== */
+
+const paddle = {
+    x: W / 2 - 52,
+    y: H - 30,
+    width: 105,
+    height: 12
+};
+
+
+/* ==========================
+   공
+========================== */
+
+const mainBall = {
+    x: W / 2,
+    y: H - 55,
+    radius: 9,
+    dx: 4,
+    dy: -4,
+    active: true
+};
+
+let extraBalls = [];
+
+
+/* ==========================
+   블록
+========================== */
+
+const ROWS = 6;
+const COLS = 9;
+
+const BRICK_W = 62;
+const BRICK_H = 24;
+const GAP = 7;
+
+const TOP = 70;
+const LEFT = 20;
+
+let bricks = [];
+
+
+/* ==========================
+   라운드별 속도
+========================== */
+
+function ballSpeed() {
+
+    return Math.min(
+        4.5 + (round - 1) * 0.7,
+        10
+    );
+}
+
+
+function paddleSpeed() {
+
+    return Math.min(
+        14 + (round - 1) * 2,
+        30
+    );
+}
+
+
+function multiSpeed() {
+
+    return Math.min(
+        5.5 + (round - 1) * 0.5,
+        9
+    );
+}
+
+
+/* ==========================
+   블록 HP
+========================== */
+
+function randomHP() {
+
+    const r = Math.random();
+
+    if (round === 1) {
+
+        if (r < 0.65) return 1;
+        if (r < 0.95) return 2;
+
+        return 3;
+    }
+
+    if (round <= 3) {
+
+        if (r < 0.45) return 1;
+        if (r < 0.85) return 2;
+
+        return 3;
+    }
+
+    if (r < 0.25) return 1;
+    if (r < 0.65) return 2;
+    if (r < 0.90) return 3;
+
+    return Math.min(
+        5,
+        4 + Math.floor((round - 4) / 3)
+    );
+}
+
+
+/* ==========================
+   블록 생성
+========================== */
+
+function makeBricks() {
+
+    bricks = [];
+
+    for (let r = 0; r < ROWS; r++) {
+
+        bricks[r] = [];
+
+        for (let c = 0; c < COLS; c++) {
+
+            let hp = randomHP();
+
+            let chance =
+                Math.min(
+                    0.08 + round * 0.015,
+                    0.18
+                );
+
+            bricks[r][c] = {
+
+                x: LEFT +
+                   c * (BRICK_W + GAP),
+
+                y: TOP +
+                   r * (BRICK_H + GAP),
+
+                hp: hp,
+
+                alive: true,
+
+                multi:
+                    Math.random() < chance
+            };
+        }
+    }
+}
+
+
+/* ==========================
+   공 리셋
+========================== */
+
+function resetBall() {
+
+    const speed = ballSpeed();
+
+    mainBall.x = W / 2;
+    mainBall.y = H - 55;
+
+    mainBall.dx =
+        Math.random() < 0.5
+        ? speed
+        : -speed;
+
+    mainBall.dy = -speed;
+
+    mainBall.active = true;
+
+    paddle.x =
+        W / 2 - paddle.width / 2;
+}
+
+
+/* ==========================
+   멀티볼 생성
+========================== */
+
+function spawnMultiBalls() {
+
+    const speed = multiSpeed();
+
+    extraBalls.push({
+        x: mainBall.x,
+        y: mainBall.y,
+        radius: 8,
+        dx: -speed,
+        dy: -speed * 0.8,
+        active: true
+    });
+
+    extraBalls.push({
+        x: mainBall.x,
+        y: mainBall.y,
+        radius: 8,
+        dx: speed,
+        dy: -speed * 0.7,
+        active: true
+    });
+}
+
+
+/* ==========================
+   점수
+========================== */
+
+function addScore(value) {
+
+    score += value;
+
+    scoreText.textContent = score;
+
+    if (score > best) {
+
+        best = score;
+
+        bestText.textContent = best;
+
+        localStorage.setItem(
+            "rock_block_best",
+            best
+        );
+    }
+}
+
+
+/* ==========================
+   블록 그리기
+========================== */
+
+function drawBricks() {
+
+    for (let r = 0; r < ROWS; r++) {
+
+        for (let c = 0; c < COLS; c++) {
+
+            const b = bricks[r][c];
+
+            if (!b.alive) continue;
+
+
+            if (b.multi) {
+                ctx.fillStyle = "#087eff";
+            }
+            else if (b.hp >= 4) {
+                ctx.fillStyle = "#9b59b6";
+            }
+            else if (b.hp === 3) {
+                ctx.fillStyle = "#3498db";
+            }
+            else if (b.hp === 2) {
+                ctx.fillStyle = "#f39c12";
+            }
+            else {
+                ctx.fillStyle = "#e74c3c";
+            }
+
+
+            ctx.fillRect(
+                b.x,
+                b.y,
+                BRICK_W,
+                BRICK_H
+            );
+
+
+            ctx.fillStyle = "white";
+            ctx.font = "bold 15px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            ctx.fillText(
+                b.hp,
+                b.x + BRICK_W / 2,
+                b.y + BRICK_H / 2
+            );
+
+
+            if (b.multi) {
+
+                ctx.fillStyle = "#ffff00";
+                ctx.font = "bold 14px Arial";
+
+                ctx.fillText(
+                    "★",
+                    b.x + BRICK_W - 9,
+                    b.y + 9
+                );
+            }
+        }
+    }
+}
+
+
+/* ==========================
+   패들 그리기
+========================== */
+
+function drawPaddle() {
+
+    ctx.fillStyle = "#4CAF50";
+
+    ctx.fillRect(
+        paddle.x,
+        paddle.y,
+        paddle.width,
+        paddle.height
+    );
+}
+
+
+/* ==========================
+   메인볼 그리기
+========================== */
+
+function drawMainBall() {
+
+    if (!mainBall.active) return;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        mainBall.x,
+        mainBall.y,
+        mainBall.radius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#FFFF00";
+
+    ctx.shadowColor = "#FFFF00";
+    ctx.shadowBlur = 12;
+
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    ctx.closePath();
+}
+
+
+/* ==========================
+   멀티볼 그리기
+========================== */
+
+function drawExtraBalls() {
+
+    for (const b of extraBalls) {
+
+        if (!b.active) continue;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            b.x,
+            b.y,
+            b.radius,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = "#00BFFF";
+
+        ctx.shadowColor = "#00BFFF";
+        ctx.shadowBlur = 8;
+
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        ctx.closePath();
+    }
+}
+
+
+/* ==========================
+   블록 충돌
+========================== */
+
+function hitBricks(ball, isMain) {
+
+    for (let r = 0; r < ROWS; r++) {
+
+        for (let c = 0; c < COLS; c++) {
+
+            const b = bricks[r][c];
+
+            if (!b.alive) continue;
+
+            if (
+                ball.x + ball.radius > b.x &&
+                ball.x - ball.radius < b.x + BRICK_W &&
+                ball.y + ball.radius > b.y &&
+                ball.y - ball.radius < b.y + BRICK_H
+            ) {
+
+                b.hp--;
+
+                ball.dy *= -1;
+
+                if (b.hp <= 0) {
+
+                    b.alive = false;
+
+                    addScore(10);
+
+
+                    if (
+                        b.multi &&
+                        isMain
+                    ) {
+
+                        spawnMultiBalls();
+
+                        addScore(20);
+                    }
+                }
+
+                return;
+            }
+        }
+    }
+}
+
+
+/* ==========================
+   패들 충돌
+========================== */
+
+function hitPaddle(ball) {
+
+    if (
+        ball.dy > 0 &&
+        ball.x >= paddle.x &&
+        ball.x <= paddle.x + paddle.width &&
+        ball.y + ball.radius >= paddle.y &&
+        ball.y - ball.radius <= paddle.y + paddle.height
+    ) {
+
+        ball.dy =
+            -Math.abs(ball.dy);
+
+        const offset =
+            (
+                ball.x -
+                (paddle.x + paddle.width / 2)
+            ) /
+            (paddle.width / 2);
+
+        ball.dx =
+            offset * Math.min(
+                7 + (round - 1) * 0.2,
+                9
+            );
+    }
+}
+
+
+/* ==========================
+   메인볼 업데이트
+========================== */
+
+function updateMainBall() {
+
+    if (!mainBall.active) return;
+
+    mainBall.x += mainBall.dx;
+    mainBall.y += mainBall.dy;
+
+
+    if (
+        mainBall.x + mainBall.radius >= W ||
+        mainBall.x - mainBall.radius <= 0
+    ) {
+        mainBall.dx *= -1;
+    }
+
+
+    if (
+        mainBall.y - mainBall.radius <= 0
+    ) {
+        mainBall.dy *= -1;
+    }
+
+
+    hitPaddle(mainBall);
+
+    hitBricks(mainBall, true);
+
+
+    /*
+    메인볼이 떨어질 때만
+    목숨 감소
+    */
+
+    if (
+        mainBall.y - mainBall.radius > H
+    ) {
+
+        lives--;
+
+        livesText.textContent = lives;
+
+        extraBalls = [];
+
+        if (lives <= 0) {
+
+            mainBall.active = false;
+
+            running = false;
+
+        }
+        else {
+
+            resetBall();
+        }
+    }
+}
+
+
+/* ==========================
+   멀티볼 업데이트
+========================== */
+
+function updateExtraBalls() {
+
+    for (const ball of extraBalls) {
+
+        if (!ball.active) continue;
+
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+
+        if (
+            ball.x + ball.radius >= W ||
+            ball.x - ball.radius <= 0
+        ) {
+
+            ball.dx *= -1;
+        }
+
+
+        if (
+            ball.y - ball.radius <= 0
+        ) {
+
+            ball.dy *= -1;
+        }
+
+
+        hitPaddle(ball);
+
+        hitBricks(ball, false);
+
+
+        /*
+        멀티볼은 떨어져도
+        목숨을 깎지 않는다.
+        */
+
+        if (
+            ball.y - ball.radius > H
+        ) {
+
+            ball.active = false;
+        }
+    }
+
+
+    extraBalls =
+        extraBalls.filter(
+            b => b.active
+        );
+}
+
+
+/* ==========================
+   남은 블록
+========================== */
+
+function remainingBricks() {
+
+    let count = 0;
+
+    for (let r = 0; r < ROWS; r++) {
+
+        for (let c = 0; c < COLS; c++) {
+
+            if (bricks[r][c].alive) {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+
+/* ==========================
+   다음 라운드
+========================== */
+
+function nextRound() {
+
+    round++;
+
+    roundText.textContent = round;
+
+    extraBalls = [];
+
+    makeBricks();
+
+    resetBall();
+}
+
+
+/* ==========================
+   게임 상태
+========================== */
+
+let running = true;
+
+
+/* ==========================
+   업데이트
+========================== */
+
+function update() {
+
+    if (!running) return;
+
+
+    const speed = paddleSpeed();
+
+
+    if (left) {
+        paddle.x -= speed;
+    }
+
+    if (right) {
+        paddle.x += speed;
+    }
+
+
+    if (paddle.x < 0) {
+        paddle.x = 0;
+    }
+
+    if (
+        paddle.x + paddle.width > W
+    ) {
+
+        paddle.x =
+            W - paddle.width;
+    }
+
+
+    updateMainBall();
+
+    updateExtraBalls();
+
+
+    if (remainingBricks() === 0) {
+
+        nextRound();
+    }
+}
+
+
+/* ==========================
+   화면
+========================== */
+
+function draw() {
+
+    ctx.clearRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+    drawBricks();
+
+    drawMainBall();
+
+    drawExtraBalls();
+
+    drawPaddle();
+
+
+    if (!running) {
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.78)";
+
+        ctx.fillRect(
+            0,
+            0,
+            W,
+            H
+        );
+
+        ctx.fillStyle = "white";
+
+        ctx.textAlign = "center";
+
+        ctx.font =
+            "bold 32px Arial";
+
+        ctx.fillText(
+            "GAME OVER",
+            W / 2,
+            H / 2
+        );
+
+        ctx.font =
+            "18px Arial";
+
+        ctx.fillText(
+            "점수: " + score,
+            W / 2,
+            H / 2 + 40
+        );
+
+        ctx.fillText(
+            "라운드: " + round,
+            W / 2,
+            H / 2 + 70
+        );
+
+        return;
+    }
+
+
+    update();
+
+    requestAnimationFrame(draw);
+}
+
+
+/* ==========================
+   키보드
+========================== */
+
+document.addEventListener(
+    "keydown",
+    function(e) {
+
+        if (e.key === "ArrowLeft") {
+            left = true;
+        }
+
+        if (e.key === "ArrowRight") {
+            right = true;
+        }
+    }
+);
+
+
+document.addEventListener(
+    "keyup",
+    function(e) {
+
+        if (e.key === "ArrowLeft") {
+            left = false;
+        }
+
+        if (e.key === "ArrowRight") {
+            right = false;
+        }
+    }
+);
+
+
+/* ==========================
+   버튼
+========================== */
+
+const leftButton =
+    document.getElementById("left");
+
+const rightButton =
+    document.getElementById("right");
+
+
+leftButton.addEventListener(
+    "mousedown",
+    function() {
+        left = true;
+    }
+);
+
+leftButton.addEventListener(
+    "mouseup",
+    function() {
+        left = false;
+    }
+);
+
+leftButton.addEventListener(
+    "mouseleave",
+    function() {
+        left = false;
+    }
+);
+
+
+rightButton.addEventListener(
+    "mousedown",
+    function() {
+        right = true;
+    }
+);
+
+rightButton.addEventListener(
+    "mouseup",
+    function() {
+        right = false;
+    }
+);
+
+rightButton.addEventListener(
+    "mouseleave",
+    function() {
+        right = false;
+    }
+);
+
+
+leftButton.addEventListener(
+    "touchstart",
+    function(e) {
+        e.preventDefault();
+        left = true;
+    },
+    { passive: false }
+);
+
+leftButton.addEventListener(
+    "touchend",
+    function(e) {
+        e.preventDefault();
+        left = false;
+    },
+    { passive: false }
+);
+
+
+rightButton.addEventListener(
+    "touchstart",
+    function(e) {
+        e.preventDefault();
+        right = true;
+    },
+    { passive: false }
+);
+
+rightButton.addEventListener(
+    "touchend",
+    function(e) {
+        e.preventDefault();
+        right = false;
+    },
+    { passive: false }
+);
+
+
+/* ==========================
+   다시 시작
+========================== */
+
+document
+.getElementById("restart")
+.addEventListener(
+    "click",
+    function() {
+
+        score = 0;
+        lives = 3;
+        round = 1;
+
+        running = true;
+
+        extraBalls = [];
+
+        scoreText.textContent = 0;
+        livesText.textContent = 3;
+        roundText.textContent = 1;
+
+        makeBricks();
+        resetBall();
+
+        requestAnimationFrame(draw);
+    }
+);
+
+
+/* ==========================
+   시작
+========================== */
+
+makeBricks();
+
+resetBall();
+
+draw();
+
+</script>
+
+</body>
+</html>
+'''
+
+components.html(
+    html,
+    height=650,
+    scrolling=False
+)    margin: auto;
     background: #181818;
     border: 2px solid #555;
     border-radius: 8px;
