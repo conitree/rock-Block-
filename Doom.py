@@ -5,22 +5,23 @@ st.set_page_config(
     page_title="DOOM Mobile",
     page_icon="👾",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
     """
     <style>
     .block-container {
-        padding: 0;
-        max-width: 100%;
+        padding: 0 !important;
+        max-width: 100% !important;
     }
 
     header, footer, #MainMenu {
-        visibility: hidden;
+        display: none !important;
     }
 
     iframe {
-        border: none;
+        border: 0 !important;
     }
     </style>
     """,
@@ -32,10 +33,13 @@ game_html = r"""
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+
 <meta
     name="viewport"
-    content="width=device-width, initial-scale=1,
-             maximum-scale=1, user-scalable=no"
+    content="width=device-width,
+             initial-scale=1,
+             maximum-scale=1,
+             user-scalable=no"
 >
 
 <style>
@@ -46,6 +50,7 @@ game_html = r"""
 
 html, body {
     margin: 0;
+    padding: 0;
     overflow: hidden;
     background: #050505;
     color: white;
@@ -72,29 +77,35 @@ canvas {
 }
 
 /* 시작 화면 */
+
 #startScreen {
     position: absolute;
     inset: 0;
-    z-index: 20;
+    z-index: 30;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     background:
-        radial-gradient(circle, #611b0e 0%, #180705 45%, #020202 85%);
+        radial-gradient(
+            circle,
+            #641d10 0%,
+            #190705 48%,
+            #020202 85%
+        );
 }
 
 #startScreen h1 {
     margin: 0 0 12px;
     color: #ef4428;
-    font-size: clamp(45px, 12vw, 82px);
     font-family: Impact, sans-serif;
+    font-size: clamp(46px, 12vw, 84px);
     letter-spacing: 4px;
     text-shadow: 0 5px 0 #690e08;
 }
 
 #startButton {
-    padding: 15px 35px;
+    padding: 15px 36px;
     color: white;
     font-size: 20px;
     font-weight: bold;
@@ -107,14 +118,15 @@ canvas {
     margin: 14px 15px;
     color: #e1d0bc;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.65;
 }
 
 /* 모바일 조작 버튼 */
+
 #mobileControls {
     position: absolute;
     inset: 0;
-    z-index: 10;
+    z-index: 20;
     pointer-events: none;
 }
 
@@ -142,14 +154,18 @@ canvas {
     display: flex;
     align-items: center;
     justify-content: center;
+
     width: 55px;
     height: 55px;
+
     color: white;
     font-size: 24px;
     font-weight: bold;
+
     background: rgba(25, 20, 18, 0.72);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.48);
     border-radius: 50%;
+
     touch-action: none;
 }
 
@@ -194,29 +210,30 @@ canvas {
     width: 84px;
     height: 84px;
     font-size: 16px;
-    background: rgba(186, 39, 23, 0.82);
+    background: rgba(186, 39, 23, 0.84);
 }
 
 #reload {
     right: 5px;
     bottom: 0;
-    width: 67px;
+    width: 68px;
     height: 44px;
     font-size: 12px;
     border-radius: 18px;
 }
 
-/* 세로 화면 대응 */
+/* 세로 화면 */
+
 @media (orientation: portrait) {
     #game {
-        height: 75vh;
+        height: 74vh;
         min-height: 540px;
     }
 
     .movePad,
     .actionPad {
-        transform: scale(0.88);
         bottom: 66px;
+        transform: scale(0.88);
     }
 
     .movePad {
@@ -231,7 +248,9 @@ canvas {
 </head>
 
 <body>
+
 <div id="game">
+
     <canvas id="canvas" width="960" height="600"></canvas>
 
     <div id="startScreen">
@@ -239,9 +258,10 @@ canvas {
             <h1>DOOM-LITE</h1>
 
             <div class="guide">
-                왼쪽 방향 패드로 이동<br>
-                오른쪽 버튼으로 회전·발사<br>
-                게임 화면을 좌우로 밀어서 조준<br>
+                왼쪽 패드: 이동<br>
+                오른쪽 화살표: 회전<br>
+                FIRE: 발사 / RELOAD: 재장전<br>
+                화면 좌우 드래그: 시점 조준<br>
                 가로 화면 권장
             </div>
 
@@ -250,6 +270,7 @@ canvas {
     </div>
 
     <div id="mobileControls">
+
         <div class="movePad">
             <div class="controlButton" id="forward">▲</div>
             <div class="controlButton" id="backward">▼</div>
@@ -263,7 +284,9 @@ canvas {
             <div class="controlButton" id="fire">FIRE</div>
             <div class="controlButton" id="reload">RELOAD</div>
         </div>
+
     </div>
+
 </div>
 
 <script>
@@ -273,11 +296,17 @@ const ctx = canvas.getContext("2d");
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-/* 0은 빈 공간, 1~3은 벽 */
+/*
+0 = 빈 공간
+1 = 갈색 벽
+2 = 녹색 벽
+3 = 보라색 벽
+*/
+
 const gameMap = [
     "1111111111111111",
     "1000000000000001",
-    "1020000100003001",
+    "1000000100003001",
     "1000000100000001",
     "1000111101110001",
     "1000000001000001",
@@ -303,56 +332,102 @@ const wallColors = [
 let player;
 let enemies;
 let controls = {};
+
 let muzzleFlash = 0;
 let playing = false;
-let paused = false;
 let lastFrame = 0;
 
+/* 게임 초기화 */
+
 function resetGame() {
+    /*
+    기존 오류 수정:
+    플레이어를 벽이 없는 2.5, 1.5 위치에 배치
+    */
+
     player = {
         x: 2.5,
-        y: 2.5,
+        y: 1.5,
         angle: 0,
         health: 100,
         ammo: 12,
         score: 0
     };
 
+    /*
+    첫 번째 적은 시작 직후 정면에서 보임
+    */
+
     enemies = [
-        {x: 11.5, y: 2.5, health: 2},
-        {x: 13.5, y: 7.5, health: 2},
-        {x: 3.5, y: 13.5, health: 2},
-        {x: 9.5, y: 11.5, health: 2},
-        {x: 12.5, y: 14.5, health: 2}
+        {
+            x: 7.5,
+            y: 1.5,
+            health: 2
+        },
+        {
+            x: 12.5,
+            y: 3.5,
+            health: 2
+        },
+        {
+            x: 3.5,
+            y: 6.5,
+            health: 2
+        },
+        {
+            x: 10.5,
+            y: 8.5,
+            health: 2
+        },
+        {
+            x: 13.5,
+            y: 13.5,
+            health: 2
+        }
     ];
 
+    controls = {};
     playing = true;
-    paused = false;
 }
+
+/* 벽 판정 */
 
 function isWall(x, y) {
-    const row = gameMap[Math.floor(y)];
-    const cell = row?.[Math.floor(x)];
+    const mapX = Math.floor(x);
+    const mapY = Math.floor(y);
 
-    return !cell || Number(cell) > 0;
+    if (
+        mapY < 0 ||
+        mapY >= gameMap.length ||
+        mapX < 0 ||
+        mapX >= gameMap[0].length
+    ) {
+        return true;
+    }
+
+    return Number(gameMap[mapY][mapX]) > 0;
 }
 
-/* 광선을 발사하여 벽까지의 거리 계산 */
+/* 광선 추적 */
+
 function castRay(angle) {
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
+    const rayCos = Math.cos(angle);
+    const raySin = Math.sin(angle);
 
     let distance = 0;
 
     while (distance < 20) {
         distance += 0.025;
 
-        const rayX = player.x + cos * distance;
-        const rayY = player.y + sin * distance;
+        const rayX =
+            player.x + rayCos * distance;
+
+        const rayY =
+            player.y + raySin * distance;
 
         if (isWall(rayX, rayY)) {
             return {
-                distance,
+                distance: distance,
                 type: Number(
                     gameMap[Math.floor(rayY)][Math.floor(rayX)]
                 )
@@ -366,8 +441,13 @@ function castRay(angle) {
     };
 }
 
+/* 총 발사 */
+
 function shoot() {
-    if (!playing || paused || player.ammo <= 0) {
+    if (
+        !playing ||
+        player.ammo <= 0
+    ) {
         return;
     }
 
@@ -375,13 +455,14 @@ function shoot() {
     muzzleFlash = 5;
 
     let selectedEnemy = null;
-    let smallestAngle = 0.14;
+    let smallestAngle = 0.15;
 
     for (const enemy of enemies) {
         const dx = enemy.x - player.x;
         const dy = enemy.y - player.y;
 
-        const distance = Math.hypot(dx, dy);
+        const distance =
+            Math.hypot(dx, dy);
 
         let angleDifference =
             Math.atan2(dy, dx) - player.angle;
@@ -392,35 +473,46 @@ function shoot() {
         );
 
         const wallDistance =
-            castRay(player.angle + angleDifference).distance;
+            castRay(
+                player.angle + angleDifference
+            ).distance;
 
         if (
             Math.abs(angleDifference) < smallestAngle &&
             distance < wallDistance
         ) {
             selectedEnemy = enemy;
-            smallestAngle = Math.abs(angleDifference);
+            smallestAngle =
+                Math.abs(angleDifference);
         }
     }
 
-    if (selectedEnemy) {
+    if (selectedEnemy !== null) {
         selectedEnemy.health -= 1;
         player.score += 50;
 
         if (selectedEnemy.health <= 0) {
-            enemies.splice(enemies.indexOf(selectedEnemy), 1);
+            const index =
+                enemies.indexOf(selectedEnemy);
+
+            enemies.splice(index, 1);
             player.score += 150;
         }
     }
 }
 
+/* 게임 상태 갱신 */
+
 function update(deltaTime) {
-    if (!playing || paused) {
+    if (!playing) {
         return;
     }
 
-    const moveSpeed = 2.2 * deltaTime;
-    const turnSpeed = 2.1 * deltaTime;
+    const moveSpeed =
+        2.25 * deltaTime;
+
+    const turnSpeed =
+        2.15 * deltaTime;
 
     if (controls.turnLeft) {
         player.angle -= turnSpeed;
@@ -434,49 +526,103 @@ function update(deltaTime) {
     let moveY = 0;
 
     if (controls.forward) {
-        moveX += Math.cos(player.angle) * moveSpeed;
-        moveY += Math.sin(player.angle) * moveSpeed;
+        moveX +=
+            Math.cos(player.angle) *
+            moveSpeed;
+
+        moveY +=
+            Math.sin(player.angle) *
+            moveSpeed;
     }
 
     if (controls.backward) {
-        moveX -= Math.cos(player.angle) * moveSpeed;
-        moveY -= Math.sin(player.angle) * moveSpeed;
+        moveX -=
+            Math.cos(player.angle) *
+            moveSpeed;
+
+        moveY -=
+            Math.sin(player.angle) *
+            moveSpeed;
     }
 
     if (controls.strafeLeft) {
-        moveX += Math.cos(player.angle - Math.PI / 2) * moveSpeed;
-        moveY += Math.sin(player.angle - Math.PI / 2) * moveSpeed;
+        moveX +=
+            Math.cos(
+                player.angle -
+                Math.PI / 2
+            ) * moveSpeed;
+
+        moveY +=
+            Math.sin(
+                player.angle -
+                Math.PI / 2
+            ) * moveSpeed;
     }
 
     if (controls.strafeRight) {
-        moveX += Math.cos(player.angle + Math.PI / 2) * moveSpeed;
-        moveY += Math.sin(player.angle + Math.PI / 2) * moveSpeed;
+        moveX +=
+            Math.cos(
+                player.angle +
+                Math.PI / 2
+            ) * moveSpeed;
+
+        moveY +=
+            Math.sin(
+                player.angle +
+                Math.PI / 2
+            ) * moveSpeed;
     }
 
-    if (!isWall(player.x + moveX, player.y)) {
+    const playerRadius = 0.18;
+
+    if (
+        !isWall(
+            player.x + moveX +
+            Math.sign(moveX) * playerRadius,
+            player.y
+        )
+    ) {
         player.x += moveX;
     }
 
-    if (!isWall(player.x, player.y + moveY)) {
+    if (
+        !isWall(
+            player.x,
+            player.y + moveY +
+            Math.sign(moveY) * playerRadius
+        )
+    ) {
         player.y += moveY;
     }
 
     /* 적 이동 및 공격 */
-    for (const enemy of enemies) {
-        const dx = player.x - enemy.x;
-        const dy = player.y - enemy.y;
-        const distance = Math.hypot(dx, dy);
 
-        if (distance < 0.7) {
-            player.health -= 18 * deltaTime;
+    for (const enemy of enemies) {
+        const dx =
+            player.x - enemy.x;
+
+        const dy =
+            player.y - enemy.y;
+
+        const distance =
+            Math.hypot(dx, dy);
+
+        if (distance < 0.68) {
+            player.health -=
+                17 * deltaTime;
         } else if (distance < 7) {
-            const enemySpeed = 0.45 * deltaTime;
+            const enemySpeed =
+                0.43 * deltaTime;
 
             const nextX =
-                enemy.x + (dx / distance) * enemySpeed;
+                enemy.x +
+                dx / distance *
+                enemySpeed;
 
             const nextY =
-                enemy.y + (dy / distance) * enemySpeed;
+                enemy.y +
+                dy / distance *
+                enemySpeed;
 
             if (!isWall(nextX, enemy.y)) {
                 enemy.x = nextX;
@@ -488,70 +634,128 @@ function update(deltaTime) {
         }
     }
 
-    if (player.health <= 0 || enemies.length === 0) {
+    if (player.health <= 0) {
+        player.health = 0;
+        playing = false;
+    }
+
+    if (enemies.length === 0) {
         playing = false;
     }
 }
 
+/* 배경과 벽 렌더링 */
+
 function drawWorld() {
-    /* 하늘 */
-    const sky = ctx.createLinearGradient(
-        0, 0, 0, HEIGHT / 2
+    const skyGradient =
+        ctx.createLinearGradient(
+            0,
+            0,
+            0,
+            HEIGHT / 2
+        );
+
+    skyGradient.addColorStop(
+        0,
+        "#210b0a"
     );
 
-    sky.addColorStop(0, "#210b0a");
-    sky.addColorStop(1, "#6b251a");
-
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT / 2);
-
-    /* 바닥 */
-    const floor = ctx.createLinearGradient(
-        0, HEIGHT / 2, 0, HEIGHT
+    skyGradient.addColorStop(
+        1,
+        "#6b251a"
     );
 
-    floor.addColorStop(0, "#332a23");
-    floor.addColorStop(1, "#080706");
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(
+        0,
+        0,
+        WIDTH,
+        HEIGHT / 2
+    );
 
-    ctx.fillStyle = floor;
-    ctx.fillRect(0, HEIGHT / 2, WIDTH, HEIGHT / 2);
+    const floorGradient =
+        ctx.createLinearGradient(
+            0,
+            HEIGHT / 2,
+            0,
+            HEIGHT
+        );
 
-    const fieldOfView = Math.PI / 3;
+    floorGradient.addColorStop(
+        0,
+        "#332a23"
+    );
+
+    floorGradient.addColorStop(
+        1,
+        "#080706"
+    );
+
+    ctx.fillStyle = floorGradient;
+    ctx.fillRect(
+        0,
+        HEIGHT / 2,
+        WIDTH,
+        HEIGHT / 2
+    );
+
+    const fieldOfView =
+        Math.PI / 3;
+
     const depthBuffer = [];
 
-    /* 벽 그리기 */
-    for (let column = 0; column < WIDTH; column += 2) {
+    for (
+        let column = 0;
+        column < WIDTH;
+        column += 2
+    ) {
         const rayAngle =
             player.angle -
             fieldOfView / 2 +
-            fieldOfView * column / WIDTH;
+            fieldOfView *
+            column / WIDTH;
 
-        const ray = castRay(rayAngle);
+        const ray =
+            castRay(rayAngle);
 
         const correctedDistance =
             ray.distance *
-            Math.cos(rayAngle - player.angle);
+            Math.cos(
+                rayAngle -
+                player.angle
+            );
 
-        depthBuffer[column / 2] = correctedDistance;
+        depthBuffer[column / 2] =
+            correctedDistance;
 
-        const wallHeight = Math.min(
-            HEIGHT,
-            HEIGHT / correctedDistance
-        );
+        const wallHeight =
+            Math.min(
+                HEIGHT,
+                HEIGHT /
+                Math.max(
+                    correctedDistance,
+                    0.001
+                )
+            );
 
-        const brightness = Math.max(
-            0.22,
-            1 - correctedDistance / 14
-        );
+        const brightness =
+            Math.max(
+                0.22,
+                1 -
+                correctedDistance / 14
+            );
 
         ctx.fillStyle =
-            wallColors[ray.type] || wallColors[1];
+            wallColors[ray.type] ||
+            wallColors[1];
 
-        ctx.globalAlpha = brightness;
+        ctx.globalAlpha =
+            brightness;
 
         ctx.fillRect(
             column,
-            HEIGHT / 2 - wallHeight / 2,
+            HEIGHT / 2 -
+            wallHeight / 2,
             2,
             wallHeight
         );
@@ -559,98 +763,247 @@ function drawWorld() {
         ctx.globalAlpha = 1;
     }
 
-    drawEnemies(depthBuffer, fieldOfView);
+    drawEnemies(
+        depthBuffer,
+        fieldOfView
+    );
 }
 
-function drawEnemies(depthBuffer, fieldOfView) {
-    const orderedEnemies = enemies
-        .map(enemy => ({
-            ...enemy,
-            distance: Math.hypot(
-                enemy.x - player.x,
-                enemy.y - player.y
-            ),
-            angle: Math.atan2(
-                enemy.y - player.y,
-                enemy.x - player.x
-            )
-        }))
-        .sort((a, b) => b.distance - a.distance);
+/* 적 렌더링 */
 
-    for (const enemy of orderedEnemies) {
-        let angleDifference =
-            enemy.angle - player.angle;
-
-        angleDifference = Math.atan2(
-            Math.sin(angleDifference),
-            Math.cos(angleDifference)
+function drawEnemies(
+    depthBuffer,
+    fieldOfView
+) {
+    const visibleEnemies =
+        enemies
+        .map(enemy => {
+            return {
+                enemy: enemy,
+                distance: Math.hypot(
+                    enemy.x - player.x,
+                    enemy.y - player.y
+                ),
+                angle: Math.atan2(
+                    enemy.y - player.y,
+                    enemy.x - player.x
+                )
+            };
+        })
+        .sort(
+            (a, b) =>
+                b.distance -
+                a.distance
         );
 
-        if (Math.abs(angleDifference) > fieldOfView * 0.65) {
+    for (const data of visibleEnemies) {
+        let angleDifference =
+            data.angle -
+            player.angle;
+
+        angleDifference =
+            Math.atan2(
+                Math.sin(angleDifference),
+                Math.cos(angleDifference)
+            );
+
+        if (
+            Math.abs(angleDifference) >
+            fieldOfView * 0.65
+        ) {
             continue;
         }
 
         const screenX =
             WIDTH / 2 +
-            angleDifference / fieldOfView * WIDTH;
+            angleDifference /
+            fieldOfView *
+            WIDTH;
 
-        const size = Math.min(
-            260,
-            300 / enemy.distance
-        );
-
-        const depthIndex = Math.max(
-            0,
+        const size =
             Math.min(
-                depthBuffer.length - 1,
-                Math.floor(screenX / 2)
-            )
+                280,
+                340 /
+                Math.max(
+                    data.distance,
+                    0.2
+                )
+            );
+
+        const depthIndex =
+            Math.max(
+                0,
+                Math.min(
+                    depthBuffer.length - 1,
+                    Math.floor(
+                        screenX / 2
+                    )
+                )
+            );
+
+        if (
+            data.distance >
+            depthBuffer[depthIndex] +
+            0.25
+        ) {
+            continue;
+        }
+
+        const enemyX =
+            screenX;
+
+        const enemyY =
+            HEIGHT / 2 -
+            size * 0.13;
+
+        /* 그림자 */
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.45)";
+
+        ctx.beginPath();
+        ctx.ellipse(
+            enemyX,
+            HEIGHT / 2 +
+            size * 0.42,
+            size * 0.34,
+            size * 0.10,
+            0,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+
+        /* 몸통 */
+
+        ctx.fillStyle = "#4a0c08";
+
+        ctx.fillRect(
+            enemyX - size * 0.25,
+            enemyY - size * 0.05,
+            size * 0.50,
+            size * 0.65
         );
 
-        if (enemy.distance < depthBuffer[depthIndex] + 0.2) {
-            /* 몸 */
-            ctx.fillStyle = "#260907";
-            ctx.fillRect(
-                screenX - size * 0.27,
-                HEIGHT / 2 - size * 0.42,
-                size * 0.54,
-                size * 0.84
-            );
+        /* 양팔 */
 
-            /* 머리 */
-            ctx.fillStyle = "#d63c25";
-            ctx.beginPath();
-            ctx.arc(
-                screenX,
-                HEIGHT / 2 - size * 0.42,
-                size * 0.25,
-                0,
-                Math.PI * 2
-            );
-            ctx.fill();
+        ctx.fillStyle = "#8f1f15";
 
-            /* 눈 */
-            ctx.fillStyle = "#ffe25e";
+        ctx.fillRect(
+            enemyX - size * 0.39,
+            enemyY,
+            size * 0.16,
+            size * 0.52
+        );
 
-            ctx.fillRect(
-                screenX - size * 0.13,
-                HEIGHT / 2 - size * 0.48,
-                size * 0.08,
-                size * 0.06
-            );
+        ctx.fillRect(
+            enemyX + size * 0.23,
+            enemyY,
+            size * 0.16,
+            size * 0.52
+        );
 
-            ctx.fillRect(
-                screenX + size * 0.05,
-                HEIGHT / 2 - size * 0.48,
-                size * 0.08,
-                size * 0.06
-            );
-        }
+        /* 머리 */
+
+        ctx.fillStyle = "#d63c25";
+
+        ctx.beginPath();
+        ctx.arc(
+            enemyX,
+            enemyY - size * 0.14,
+            size * 0.24,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+
+        /* 뿔 */
+
+        ctx.fillStyle = "#e7c794";
+
+        ctx.beginPath();
+        ctx.moveTo(
+            enemyX - size * 0.19,
+            enemyY - size * 0.29
+        );
+
+        ctx.lineTo(
+            enemyX - size * 0.32,
+            enemyY - size * 0.48
+        );
+
+        ctx.lineTo(
+            enemyX - size * 0.08,
+            enemyY - size * 0.32
+        );
+
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(
+            enemyX + size * 0.19,
+            enemyY - size * 0.29
+        );
+
+        ctx.lineTo(
+            enemyX + size * 0.32,
+            enemyY - size * 0.48
+        );
+
+        ctx.lineTo(
+            enemyX + size * 0.08,
+            enemyY - size * 0.32
+        );
+
+        ctx.fill();
+
+        /* 눈 */
+
+        ctx.fillStyle = "#fff25e";
+
+        ctx.fillRect(
+            enemyX - size * 0.13,
+            enemyY - size * 0.20,
+            size * 0.08,
+            size * 0.06
+        );
+
+        ctx.fillRect(
+            enemyX + size * 0.05,
+            enemyY - size * 0.20,
+            size * 0.08,
+            size * 0.06
+        );
+
+        /* 체력 표시 */
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.7)";
+
+        ctx.fillRect(
+            enemyX - size * 0.25,
+            enemyY - size * 0.55,
+            size * 0.50,
+            6
+        );
+
+        ctx.fillStyle = "#ff3b25";
+
+        ctx.fillRect(
+            enemyX - size * 0.25,
+            enemyY - size * 0.55,
+            size * 0.25 *
+            data.enemy.health,
+            6
+        );
     }
 }
 
+/* 무기 */
+
 function drawWeapon() {
     ctx.fillStyle = "#332b28";
+
     ctx.fillRect(
         WIDTH / 2 - 58,
         HEIGHT - 122,
@@ -659,6 +1012,7 @@ function drawWeapon() {
     );
 
     ctx.fillStyle = "#151515";
+
     ctx.fillRect(
         WIDTH / 2 - 20,
         HEIGHT - 190,
@@ -668,77 +1022,132 @@ function drawWeapon() {
 
     if (muzzleFlash > 0) {
         ctx.fillStyle = "#ffd85a";
+
         ctx.beginPath();
+
         ctx.arc(
             WIDTH / 2,
-            HEIGHT - 193,
-            35,
+            HEIGHT - 195,
+            36,
             0,
             Math.PI * 2
         );
+
         ctx.fill();
 
         muzzleFlash -= 1;
     }
 }
 
+/* 조준점 */
+
 function drawCrosshair() {
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;
 
     ctx.beginPath();
-    ctx.moveTo(WIDTH / 2 - 12, HEIGHT / 2);
-    ctx.lineTo(WIDTH / 2 + 12, HEIGHT / 2);
 
-    ctx.moveTo(WIDTH / 2, HEIGHT / 2 - 12);
-    ctx.lineTo(WIDTH / 2, HEIGHT / 2 + 12);
+    ctx.moveTo(
+        WIDTH / 2 - 12,
+        HEIGHT / 2
+    );
+
+    ctx.lineTo(
+        WIDTH / 2 + 12,
+        HEIGHT / 2
+    );
+
+    ctx.moveTo(
+        WIDTH / 2,
+        HEIGHT / 2 - 12
+    );
+
+    ctx.lineTo(
+        WIDTH / 2,
+        HEIGHT / 2 + 12
+    );
 
     ctx.stroke();
 }
 
-function drawHud() {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
-    ctx.fillRect(0, HEIGHT - 62, WIDTH, 62);
+/* 상태창 */
 
-    ctx.font = "bold 23px monospace";
+function drawHud() {
+    ctx.fillStyle =
+        "rgba(0,0,0,0.80)";
+
+    ctx.fillRect(
+        0,
+        HEIGHT - 62,
+        WIDTH,
+        62
+    );
+
+    ctx.font =
+        "bold 23px monospace";
 
     ctx.fillStyle =
-        player.health < 30 ? "#ff3322" : "#ffb23d";
+        player.health < 30
+        ? "#ff3322"
+        : "#ffb23d";
 
     ctx.fillText(
-        "HP " + Math.max(0, Math.ceil(player.health)),
+        "HP " +
+        Math.ceil(player.health),
         20,
         HEIGHT - 24
     );
 
     ctx.fillStyle = "#eeeeee";
+
     ctx.fillText(
-        "AMMO " + player.ammo + "/12",
-        WIDTH / 2 - 70,
+        "AMMO " +
+        player.ammo +
+        "/12",
+        WIDTH / 2 - 76,
         HEIGHT - 24
     );
 
     ctx.fillStyle = "#ffb23d";
+
     ctx.fillText(
-        "SCORE " + player.score,
-        WIDTH - 190,
+        "ENEMY " +
+        enemies.length,
+        WIDTH - 330,
+        HEIGHT - 24
+    );
+
+    ctx.fillText(
+        "SCORE " +
+        player.score,
+        WIDTH - 175,
         HEIGHT - 24
     );
 }
+
+/* 종료 화면 */
 
 function drawEndScreen() {
     if (playing) {
         return;
     }
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.76)";
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillStyle =
+        "rgba(0,0,0,0.76)";
+
+    ctx.fillRect(
+        0,
+        0,
+        WIDTH,
+        HEIGHT
+    );
 
     ctx.textAlign = "center";
     ctx.font = "bold 55px Impact";
 
     if (enemies.length === 0) {
         ctx.fillStyle = "#f5b82e";
+
         ctx.fillText(
             "MISSION COMPLETE",
             WIDTH / 2,
@@ -746,6 +1155,7 @@ function drawEndScreen() {
         );
     } else {
         ctx.fillStyle = "#e43b25";
+
         ctx.fillText(
             "MISSION FAILED",
             WIDTH / 2,
@@ -755,6 +1165,7 @@ function drawEndScreen() {
 
     ctx.font = "20px Arial";
     ctx.fillStyle = "white";
+
     ctx.fillText(
         "화면을 두 번 눌러 다시 시작",
         WIDTH / 2,
@@ -764,20 +1175,25 @@ function drawEndScreen() {
     ctx.textAlign = "left";
 }
 
+/* 전체 화면 렌더링 */
+
 function render() {
     drawWorld();
-    drawEnemies;
     drawWeapon();
     drawCrosshair();
     drawHud();
     drawEndScreen();
 }
 
+/* 게임 반복 */
+
 function gameLoop(timestamp) {
-    const deltaTime = Math.min(
-        0.04,
-        (timestamp - lastFrame) / 1000 || 0
-    );
+    const deltaTime =
+        Math.min(
+            0.04,
+            (timestamp - lastFrame) /
+            1000 || 0
+        );
 
     lastFrame = timestamp;
 
@@ -788,136 +1204,322 @@ function gameLoop(timestamp) {
 }
 
 /* 시작 버튼 */
+
 document
     .getElementById("startButton")
-    .addEventListener("click", () => {
-        document.getElementById("startScreen").style.display = "none";
-        resetGame();
-    });
+    .addEventListener(
+        "click",
+        function () {
+            document
+                .getElementById(
+                    "startScreen"
+                )
+                .style.display = "none";
 
-/* 터치 버튼을 계속 누르고 있을 때 동작 */
-function bindHoldButton(elementId, controlName) {
-    const element = document.getElementById(elementId);
+            resetGame();
+        }
+    );
+
+/* 터치 버튼 연결 */
+
+function bindHoldButton(
+    elementId,
+    controlName
+) {
+    const element =
+        document.getElementById(
+            elementId
+        );
 
     function activate(event) {
         event.preventDefault();
+
         controls[controlName] = true;
-        element.classList.add("active");
+
+        element.classList.add(
+            "active"
+        );
     }
 
     function deactivate(event) {
         event.preventDefault();
+
         controls[controlName] = false;
-        element.classList.remove("active");
+
+        element.classList.remove(
+            "active"
+        );
     }
 
-    element.addEventListener("pointerdown", activate);
-    element.addEventListener("pointerup", deactivate);
-    element.addEventListener("pointercancel", deactivate);
-    element.addEventListener("pointerleave", deactivate);
+    element.addEventListener(
+        "pointerdown",
+        activate
+    );
+
+    element.addEventListener(
+        "pointerup",
+        deactivate
+    );
+
+    element.addEventListener(
+        "pointercancel",
+        deactivate
+    );
+
+    element.addEventListener(
+        "pointerleave",
+        deactivate
+    );
 }
 
-bindHoldButton("forward", "forward");
-bindHoldButton("backward", "backward");
-bindHoldButton("strafeLeft", "strafeLeft");
-bindHoldButton("strafeRight", "strafeRight");
-bindHoldButton("turnLeft", "turnLeft");
-bindHoldButton("turnRight", "turnRight");
+bindHoldButton(
+    "forward",
+    "forward"
+);
 
-/* 발사 버튼 */
-const fireButton = document.getElementById("fire");
+bindHoldButton(
+    "backward",
+    "backward"
+);
 
-fireButton.addEventListener("pointerdown", event => {
-    event.preventDefault();
-    fireButton.classList.add("active");
-    shoot();
-});
+bindHoldButton(
+    "strafeLeft",
+    "strafeLeft"
+);
 
-fireButton.addEventListener("pointerup", event => {
-    event.preventDefault();
-    fireButton.classList.remove("active");
-});
+bindHoldButton(
+    "strafeRight",
+    "strafeRight"
+);
 
-/* 재장전 버튼 */
-const reloadButton = document.getElementById("reload");
+bindHoldButton(
+    "turnLeft",
+    "turnLeft"
+);
 
-reloadButton.addEventListener("pointerdown", event => {
-    event.preventDefault();
-    player.ammo = 12;
-    reloadButton.classList.add("active");
-});
+bindHoldButton(
+    "turnRight",
+    "turnRight"
+);
 
-reloadButton.addEventListener("pointerup", event => {
-    event.preventDefault();
-    reloadButton.classList.remove("active");
-});
+/* 발사 */
 
-/* 화면 드래그로 시점 회전 */
-let previousTouchX = null;
+const fireButton =
+    document.getElementById("fire");
 
-canvas.addEventListener("pointerdown", event => {
-    if (event.pointerType === "touch") {
-        previousTouchX = event.clientX;
-        canvas.setPointerCapture(event.pointerId);
-    }
-});
-
-canvas.addEventListener("pointermove", event => {
-    if (
-        event.pointerType === "touch" &&
-        previousTouchX !== null
-    ) {
-        const movement = event.clientX - previousTouchX;
-
-        player.angle += movement * 0.006;
-        previousTouchX = event.clientX;
-    }
-});
-
-canvas.addEventListener("pointerup", event => {
-    if (event.pointerType === "touch") {
-        previousTouchX = null;
-    }
-});
-
-/* 게임 종료 후 두 번 터치하여 재시작 */
-canvas.addEventListener("dblclick", () => {
-    if (!playing) {
-        resetGame();
-    }
-});
-
-/* PC 키보드도 지원 */
-window.addEventListener("keydown", event => {
-    if (event.code === "KeyW") controls.forward = true;
-    if (event.code === "KeyS") controls.backward = true;
-    if (event.code === "KeyA") controls.strafeLeft = true;
-    if (event.code === "KeyD") controls.strafeRight = true;
-    if (event.code === "ArrowLeft") controls.turnLeft = true;
-    if (event.code === "ArrowRight") controls.turnRight = true;
-
-    if (event.code === "Space") {
+fireButton.addEventListener(
+    "pointerdown",
+    function (event) {
         event.preventDefault();
+
+        fireButton.classList.add(
+            "active"
+        );
+
         shoot();
     }
+);
 
-    if (event.code === "KeyR") {
-        player.ammo = 12;
+fireButton.addEventListener(
+    "pointerup",
+    function (event) {
+        event.preventDefault();
+
+        fireButton.classList.remove(
+            "active"
+        );
     }
-});
+);
 
-window.addEventListener("keyup", event => {
-    if (event.code === "KeyW") controls.forward = false;
-    if (event.code === "KeyS") controls.backward = false;
-    if (event.code === "KeyA") controls.strafeLeft = false;
-    if (event.code === "KeyD") controls.strafeRight = false;
-    if (event.code === "ArrowLeft") controls.turnLeft = false;
-    if (event.code === "ArrowRight") controls.turnRight = false;
-});
+/* 재장전 */
+
+const reloadButton =
+    document.getElementById(
+        "reload"
+    );
+
+reloadButton.addEventListener(
+    "pointerdown",
+    function (event) {
+        event.preventDefault();
+
+        if (player) {
+            player.ammo = 12;
+        }
+
+        reloadButton.classList.add(
+            "active"
+        );
+    }
+);
+
+reloadButton.addEventListener(
+    "pointerup",
+    function (event) {
+        event.preventDefault();
+
+        reloadButton.classList.remove(
+            "active"
+        );
+    }
+);
+
+/* 화면 드래그로 회전 */
+
+let previousTouchX = null;
+
+canvas.addEventListener(
+    "pointerdown",
+    function (event) {
+        if (
+            event.pointerType ===
+            "touch"
+        ) {
+            previousTouchX =
+                event.clientX;
+
+            canvas.setPointerCapture(
+                event.pointerId
+            );
+        }
+    }
+);
+
+canvas.addEventListener(
+    "pointermove",
+    function (event) {
+        if (
+            event.pointerType ===
+            "touch" &&
+            previousTouchX !== null
+        ) {
+            const movement =
+                event.clientX -
+                previousTouchX;
+
+            player.angle +=
+                movement * 0.006;
+
+            previousTouchX =
+                event.clientX;
+        }
+    }
+);
+
+canvas.addEventListener(
+    "pointerup",
+    function (event) {
+        if (
+            event.pointerType ===
+            "touch"
+        ) {
+            previousTouchX = null;
+        }
+    }
+);
+
+/* 게임 재시작 */
+
+canvas.addEventListener(
+    "dblclick",
+    function () {
+        if (!playing) {
+            resetGame();
+        }
+    }
+);
+
+/* PC 키보드 지원 */
+
+window.addEventListener(
+    "keydown",
+    function (event) {
+        if (event.code === "KeyW") {
+            controls.forward = true;
+        }
+
+        if (event.code === "KeyS") {
+            controls.backward = true;
+        }
+
+        if (event.code === "KeyA") {
+            controls.strafeLeft = true;
+        }
+
+        if (event.code === "KeyD") {
+            controls.strafeRight = true;
+        }
+
+        if (
+            event.code ===
+            "ArrowLeft"
+        ) {
+            controls.turnLeft = true;
+        }
+
+        if (
+            event.code ===
+            "ArrowRight"
+        ) {
+            controls.turnRight = true;
+        }
+
+        if (
+            event.code === "Space"
+        ) {
+            event.preventDefault();
+            shoot();
+        }
+
+        if (
+            event.code === "KeyR"
+        ) {
+            player.ammo = 12;
+        }
+    }
+);
+
+window.addEventListener(
+    "keyup",
+    function (event) {
+        if (event.code === "KeyW") {
+            controls.forward = false;
+        }
+
+        if (event.code === "KeyS") {
+            controls.backward = false;
+        }
+
+        if (event.code === "KeyA") {
+            controls.strafeLeft = false;
+        }
+
+        if (event.code === "KeyD") {
+            controls.strafeRight = false;
+        }
+
+        if (
+            event.code ===
+            "ArrowLeft"
+        ) {
+            controls.turnLeft = false;
+        }
+
+        if (
+            event.code ===
+            "ArrowRight"
+        ) {
+            controls.turnRight = false;
+        }
+    }
+);
+
+/* 최초 실행 */
 
 resetGame();
 requestAnimationFrame(gameLoop);
 </script>
+
 </body>
 </html>
 """
