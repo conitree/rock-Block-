@@ -8,341 +8,260 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-st.markdown(
-    """
-    <style>
-    .block-container {
-        padding: 0 !important;
-        max-width: 100% !important;
-    }
-
-    header, footer, #MainMenu {
-        display: none !important;
-    }
-
-    iframe {
-        border: 0;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<style>
+.block-container{padding:0!important;max-width:100%!important}
+header,footer,#MainMenu{display:none!important}
+iframe{border:0}
+</style>
+""", unsafe_allow_html=True)
 
 GAME = r'''
 <!doctype html>
 <html lang="ko">
-
 <head>
 <meta charset="utf-8">
-
-<meta
-    name="viewport"
-    content="width=device-width,
-    initial-scale=1,
-    maximum-scale=1,
-    user-scalable=no"
->
+<meta name="viewport"
+content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 
 <style>
-* {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+html,body{
+    margin:0;
+    overflow:hidden;
+    background:#050403;
+    color:#fff;
+    font-family:Arial,sans-serif;
+    touch-action:none;
+    user-select:none
 }
 
-html, body {
-    margin: 0;
-    overflow: hidden;
-    background: #050403;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    touch-action: none;
-    user-select: none;
+#game{
+    position:relative;
+    width:100%;
+    height:92vh;
+    min-height:540px;
+    background:#000;
+    overflow:hidden
 }
 
-#game {
-    position: relative;
-    width: 100%;
-    height: 92vh;
-    min-height: 540px;
-    overflow: hidden;
-    background: #000;
+canvas{
+    width:100%;
+    height:100%;
+    display:block;
+    image-rendering:pixelated;
+    touch-action:none
 }
 
-canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-    image-rendering: pixelated;
-    touch-action: none;
+#start{
+    position:absolute;
+    inset:0;
+    z-index:50;
+    display:grid;
+    place-items:center;
+    text-align:center;
+    background:radial-gradient(circle,#67180d,#170403 50%,#020101 85%)
 }
 
-/* 시작 화면 */
-
-#startScreen {
-    position: absolute;
-    inset: 0;
-    z-index: 50;
-    display: grid;
-    place-items: center;
-    text-align: center;
-    background:
-        radial-gradient(
-            circle,
-            #67180d,
-            #170403 50%,
-            #020101 85%
-        );
+#start h1{
+    margin:0;
+    color:#e83a1f;
+    font:900 clamp(48px,13vw,92px) Impact;
+    letter-spacing:4px;
+    text-shadow:0 6px #641006
 }
 
-#startScreen h1 {
-    margin: 0;
-    color: #e83a1f;
-    font: 900 clamp(48px, 13vw, 92px) Impact;
-    letter-spacing: 4px;
-    text-shadow: 0 6px #641006;
+#start p{
+    line-height:1.65;
+    color:#dcc7ae
 }
 
-#startScreen p {
-    line-height: 1.65;
-    color: #dcc7ae;
+#startButton{
+    padding:15px 35px;
+    border:2px solid #ff765b;
+    border-radius:10px;
+    background:#ad2415;
+    color:#fff;
+    font-size:20px;
+    font-weight:900
 }
 
-#startButton {
-    padding: 15px 35px;
-    border: 2px solid #ff765b;
-    border-radius: 10px;
-    background: #ad2415;
-    color: #fff;
-    font-size: 20px;
-    font-weight: 900;
+#controls{
+    position:absolute;
+    inset:0;
+    z-index:20;
+    pointer-events:none
 }
 
-/* 조작 화면 */
-
-#controls {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    pointer-events: none;
+#joystick{
+    position:absolute;
+    left:20px;
+    bottom:78px;
+    width:168px;
+    height:168px;
+    border-radius:50%;
+    border:3px solid rgba(255,255,255,.3);
+    background:radial-gradient(circle,rgba(88,79,70,.52),rgba(12,10,9,.65));
+    pointer-events:auto;
+    touch-action:none
 }
 
-/* 브롤스타즈 방식 이동 조이스틱 */
-
-#joystick {
-    position: absolute;
-    left: 20px;
-    bottom: 78px;
-    width: 168px;
-    height: 168px;
-    border: 3px solid rgba(255,255,255,.30);
-    border-radius: 50%;
-    background:
-        radial-gradient(
-            circle,
-            rgba(87,77,69,.50),
-            rgba(12,10,9,.68)
-        );
-    pointer-events: auto;
-    touch-action: none;
+#knob{
+    position:absolute;
+    left:49px;
+    top:49px;
+    width:70px;
+    height:70px;
+    border-radius:50%;
+    border:3px solid rgba(255,255,255,.52);
+    background:radial-gradient(circle at 35% 30%,#86786a,#29231f);
+    box-shadow:0 4px 12px #000
 }
 
-#joystickKnob {
-    position: absolute;
-    left: 49px;
-    top: 49px;
-    width: 70px;
-    height: 70px;
-    border: 3px solid rgba(255,255,255,.53);
-    border-radius: 50%;
-    background:
-        radial-gradient(
-            circle at 35% 30%,
-            #86786a,
-            #29231f
-        );
-    box-shadow: 0 4px 12px #000;
+.action{
+    position:absolute;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    border:3px solid rgba(255,255,255,.42);
+    color:#fff;
+    font-weight:900;
+    pointer-events:auto;
+    touch-action:none;
+    box-shadow:0 4px 12px rgba(0,0,0,.55)
 }
 
-/* 행동 버튼 */
-
-.actionButton {
-    position: absolute;
-    display: grid;
-    place-items: center;
-    border: 3px solid rgba(255,255,255,.44);
-    border-radius: 50%;
-    color: #fff;
-    font-weight: 900;
-    pointer-events: auto;
-    touch-action: none;
-    box-shadow: 0 4px 12px #000;
+.action.active{
+    transform:scale(.94);
+    filter:brightness(1.4)
 }
 
-.actionButton.active {
-    transform: scale(.93);
-    filter: brightness(1.4);
+#fireButton{
+    right:18px;
+    bottom:105px;
+    width:118px;
+    height:118px;
+    background:radial-gradient(circle at 35% 25%,#e75136,#8c120b);
+    font-size:22px
 }
 
-#fireButton {
-    right: 18px;
-    bottom: 105px;
-    width: 118px;
-    height: 118px;
-    font-size: 22px;
-    background:
-        radial-gradient(
-            circle at 35% 25%,
-            #e75136,
-            #8c120b
-        );
+#jumpButton{
+    right:150px;
+    bottom:78px;
+    width:72px;
+    height:72px;
+    background:#51453c;
+    font-size:13px
 }
 
-#jumpButton {
-    right: 150px;
-    bottom: 78px;
-    width: 72px;
-    height: 72px;
-    font-size: 13px;
-    background: #51453c;
+#runButton{
+    right:150px;
+    bottom:164px;
+    width:72px;
+    height:72px;
+    background:#493c32;
+    font-size:13px
 }
 
-#runButton {
-    right: 150px;
-    bottom: 164px;
-    width: 72px;
-    height: 72px;
-    font-size: 13px;
-    background: #493c32;
+#runButton.running{
+    background:#c34720;
+    border-color:#ffd36c;
+    box-shadow:0 0 20px #ff6a31
 }
 
-#guide {
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    z-index: 25;
-    padding: 6px 12px;
-    transform: translateX(-50%);
-    border-radius: 7px;
-    background: rgba(0,0,0,.67);
-    color: #ffd98c;
-    font-size: 12px;
-    white-space: nowrap;
+#guide{
+    position:absolute;
+    top:10px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:25;
+    padding:6px 12px;
+    border-radius:7px;
+    background:rgba(0,0,0,.67);
+    color:#ffd98c;
+    font-size:12px;
+    white-space:nowrap
 }
 
-@media (orientation: portrait) {
-    #game {
-        height: 76vh;
-        min-height: 560px;
+@media(orientation:portrait){
+    #game{height:76vh;min-height:560px}
+
+    #joystick{
+        left:7px;
+        bottom:70px;
+        transform:scale(.82);
+        transform-origin:left bottom
     }
 
-    #joystick {
-        left: 7px;
-        bottom: 70px;
-        transform: scale(.82);
-        transform-origin: left bottom;
+    #fireButton{
+        right:7px;
+        bottom:100px;
+        transform:scale(.82);
+        transform-origin:right bottom
     }
 
-    #fireButton {
-        right: 7px;
-        bottom: 100px;
-        transform: scale(.82);
-        transform-origin: right bottom;
+    #jumpButton{
+        right:105px;
+        bottom:65px;
+        transform:scale(.8)
     }
 
-    #jumpButton {
-        right: 105px;
-        bottom: 65px;
-        transform: scale(.8);
-    }
-
-    #runButton {
-        right: 105px;
-        bottom: 135px;
-        transform: scale(.8);
+    #runButton{
+        right:105px;
+        bottom:135px;
+        transform:scale(.8)
     }
 }
 </style>
 </head>
 
 <body>
-
 <div id="game">
 
-    <canvas
-        id="canvas"
-        width="960"
-        height="600"
-    ></canvas>
+<canvas id="canvas" width="960" height="600"></canvas>
 
-    <div id="guide">
-        조이스틱 이동 · 빈 화면 드래그 조준
+<div id="guide">조이스틱 이동 · 빈 화면 드래그 조준</div>
+
+<div id="controls">
+    <div id="joystick">
+        <div id="knob"></div>
     </div>
 
-    <div id="controls">
+    <div class="action" id="runButton">RUN</div>
+    <div class="action" id="jumpButton">JUMP</div>
+    <div class="action" id="fireButton">FIRE</div>
+</div>
 
-        <div id="joystick">
-            <div id="joystickKnob"></div>
-        </div>
-
-        <div
-            class="actionButton"
-            id="runButton"
-        >
-            RUN
-        </div>
-
-        <div
-            class="actionButton"
-            id="jumpButton"
-        >
-            JUMP
-        </div>
-
-        <div
-            class="actionButton"
-            id="fireButton"
-        >
-            FIRE
-        </div>
-
+<div id="start">
+    <div>
+        <h1>DOOM MOBILE</h1>
+        <p>
+            조이스틱·달리기·점프·2층 전투<br>
+            RUN은 한 번 누르면 계속 달립니다.<br>
+            빛나는 포탈로 층을 이동하세요.
+        </p>
+        <button id="startButton">지옥문 열기</button>
     </div>
-
-    <div id="startScreen">
-        <div>
-            <h1>DOOM MOBILE</h1>
-
-            <p>
-                조이스틱·달리기·점프·2층 전투<br>
-                라운드마다 더 많고 빠른 악마가 등장합니다.
-            </p>
-
-            <button id="startButton">
-                지옥문 열기
-            </button>
-        </div>
-    </div>
+</div>
 
 </div>
 
 <script>
-const canvas =
-    document.getElementById("canvas");
-
-const ctx =
-    canvas.getContext("2d");
-
-const WIDTH = canvas.width;
-const HEIGHT = canvas.height;
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+const WIDTH=canvas.width;
+const HEIGHT=canvas.height;
 
 /*
 0 = 통로
 1~3 = 벽
-4 = 계단
-5 = 점프로 넘는 낮은 장애물
+4 = 포탈
+5 = 낮은 장애물
 */
 
-const MAPS = {
-    1: [
+const MAPS={
+    1:[
         "1111111111111111",
         "1000000000000001",
         "1000000100000001",
@@ -360,8 +279,7 @@ const MAPS = {
         "1000000000000001",
         "1111111111111111"
     ],
-
-    2: [
+    2:[
         "1111111111111111",
         "1000000000000001",
         "1000111100000001",
@@ -381,653 +299,454 @@ const MAPS = {
     ]
 };
 
-/* 몬스터 생성 위치 */
-
-const SPAWN_POINTS = {
-    1: [
-        [7.5, 1.5],
-        [12.5, 2.5],
-        [3.5, 6.5],
-        [11.5, 8.5],
-        [13.5, 13.5],
-        [4.5, 13.5],
-        [8.5, 11.5],
-        [2.5, 9.5],
-        [11.5, 5.5],
-        [7.5, 14.5]
+const SPAWNS={
+    1:[
+        [7.5,1.5],[12.5,2.5],[3.5,6.5],[11.5,8.5],
+        [13.5,13.5],[4.5,13.5],[8.5,11.5],[2.5,9.5],
+        [11.5,5.5],[7.5,14.5]
     ],
-
-    2: [
-        [7.5, 1.5],
-        [12.5, 3.5],
-        [3.5, 5.5],
-        [8.5, 7.5],
-        [13.5, 8.5],
-        [3.5, 11.5],
-        [9.5, 11.5],
-        [13.5, 14.5],
-        [6.5, 14.5],
-        [2.5, 8.5]
+    2:[
+        [7.5,1.5],[12.5,3.5],[3.5,5.5],[8.5,7.5],
+        [13.5,8.5],[3.5,11.5],[9.5,11.5],[13.5,14.5],
+        [6.5,14.5],[2.5,8.5]
     ]
 };
 
+const PORTALS={
+    1:{x:12.5,y:3.5,label:"2층 PORTAL"},
+    2:{x:1.5,y:3.5,label:"1층 PORTAL"}
+};
+
 let player;
-let enemies = [];
+let enemies=[];
+let round=1;
 
-let round = 1;
-let joystick = {x: 0, y: 0};
+let joystick={x:0,y:0};
+let running=false;
+let playing=false;
 
-let running = false;
-let playing = false;
+let muzzleFlash=0;
+let hurtTime=0;
+let lastFrame=0;
+let stairLock=0;
 
-let lastFrame = 0;
-let muzzleFlash = 0;
+let message="";
+let messageTime=0;
 
-let message = "";
-let messageTime = 0;
-let stairLock = 0;
-
-function getTile(x, y, floor = player.floor) {
-    const row =
-        MAPS[floor][Math.floor(y)];
-
-    if (!row) {
-        return 1;
-    }
-
-    return Number(
-        row[Math.floor(x)] ?? 1
-    );
+function tileAt(x,y,floor=player.floor){
+    const row=MAPS[floor][Math.floor(y)];
+    return row ? Number(row[Math.floor(x)] ?? 1) : 1;
 }
 
-function isSolid(x, y) {
-    const tile = getTile(x, y);
+function solidAt(x,y){
+    const tile=tileAt(x,y);
 
-    if (tile > 0 && tile < 4) {
+    if(tile>=1 && tile<=3){
         return true;
     }
 
-    if (
-        tile === 5 &&
-        player.jumpHeight < .28
-    ) {
+    if(tile===5 && player.jumpHeight<.28){
         return true;
     }
 
     return false;
 }
 
-function showMessage(text, seconds = 1.5) {
-    message = text;
-    messageTime = seconds;
+function announce(text,time=1.5){
+    message=text;
+    messageTime=time;
 }
 
-/* 라운드 몬스터 생성 */
+function resetGame(){
+    round=1;
+    running=false;
+    hurtTime=0;
 
-function spawnRound() {
-    enemies = [];
+    document
+        .getElementById("runButton")
+        .classList.remove("running");
 
-    const enemyCount =
-        Math.min(4 + round * 2, 18);
+    player={
+        x:2.5,
+        y:1.5,
+        angle:0,
+        health:100,
+        ammo:12,
+        score:0,
+        floor:1,
+        jumpHeight:0,
+        jumpVelocity:0
+    };
 
-    const spawnList =
-        SPAWN_POINTS[player.floor];
+    spawnRound();
+    playing=true;
+    announce("ROUND 1");
+}
 
-    for (
-        let index = 0;
-        index < enemyCount;
-        index++
-    ) {
-        const spawn =
-            spawnList[
-                index % spawnList.length
-            ];
+function spawnRound(){
+    enemies=[];
 
-        const offset =
-            Math.floor(
-                index / spawnList.length
-            ) * .18;
+    const count=Math.min(4+round*2,18);
+    const points=SPAWNS[player.floor];
+
+    for(let i=0;i<count;i++){
+        const point=points[i%points.length];
+        const offset=Math.floor(i/points.length)*.18;
 
         enemies.push({
-            x: spawn[0] + offset,
-            y: spawn[1],
-            health:
-                1 + Math.floor(round / 3),
-            hitTime: 0
+            x:point[0]+offset,
+            y:point[1],
+            health:1+Math.floor(round/3),
+            hitTime:0
         });
     }
 }
 
-/* 게임 초기화 */
+/*
+벽 광선 판정은 점프 상태와 관계없이 고정합니다.
+점프할 때 벽이 사라지거나 맵이 무너져 보이는 현상을 방지합니다.
+*/
 
-function resetGame() {
-    round = 1;
+function castRay(angle){
+    const cos=Math.cos(angle);
+    const sin=Math.sin(angle);
+    let distance=0;
 
-    player = {
-        x: 2.5,
-        y: 1.5,
-        angle: 0,
-        health: 100,
-        ammo: 12,
-        score: 0,
-        floor: 1,
-        jumpHeight: 0,
-        jumpVelocity: 0
-    };
+    while(distance<20){
+        distance+=.025;
 
-    spawnRound();
+        const rayX=player.x+cos*distance;
+        const rayY=player.y+sin*distance;
+        const tile=tileAt(rayX,rayY);
 
-    playing = true;
-
-    showMessage("ROUND 1");
-}
-
-/* 광선 추적 */
-
-function castRay(angle) {
-    const cosine = Math.cos(angle);
-    const sine = Math.sin(angle);
-
-    let distance = 0;
-
-    while (distance < 20) {
-        distance += .025;
-
-        const rayX =
-            player.x +
-            cosine * distance;
-
-        const rayY =
-            player.y +
-            sine * distance;
-
-        const tile =
-            getTile(rayX, rayY);
-
-        if (
-            (tile > 0 && tile < 4) ||
-            (
-                tile === 5 &&
-                player.jumpHeight < .44
-            )
-        ) {
-            return {
-                distance: distance,
-                type: tile
+        if(
+            (tile>=1 && tile<=3) ||
+            tile===5
+        ){
+            return{
+                distance:distance,
+                type:tile
             };
         }
     }
 
-    return {
-        distance: 20,
-        type: 1
-    };
+    return{distance:20,type:1};
 }
 
-/* 총 발사 */
-
-function shoot() {
-    if (
-        !playing ||
-        player.ammo < 1
-    ) {
+function shoot(){
+    if(!playing || player.ammo<1){
         return;
     }
 
-    player.ammo -= 1;
-    muzzleFlash = 5;
+    player.ammo--;
+    muzzleFlash=5;
 
-    let target = null;
-    let closestAngle = .15;
+    let target=null;
+    let smallestAngle=.15;
 
-    for (const enemy of enemies) {
-        const dx =
-            enemy.x - player.x;
+    for(const enemy of enemies){
+        const dx=enemy.x-player.x;
+        const dy=enemy.y-player.y;
+        const distance=Math.hypot(dx,dy);
 
-        const dy =
-            enemy.y - player.y;
+        let difference=
+            Math.atan2(dy,dx)-player.angle;
 
-        const distance =
-            Math.hypot(dx, dy);
+        difference=Math.atan2(
+            Math.sin(difference),
+            Math.cos(difference)
+        );
 
-        let angleDifference =
-            Math.atan2(dy, dx) -
-            player.angle;
+        const wallDistance=
+            castRay(player.angle+difference).distance;
 
-        angleDifference =
-            Math.atan2(
-                Math.sin(angleDifference),
-                Math.cos(angleDifference)
-            );
-
-        const wallDistance =
-            castRay(
-                player.angle +
-                angleDifference
-            ).distance;
-
-        if (
-            Math.abs(angleDifference) <
-            closestAngle &&
-            distance <
-            wallDistance + .15
-        ) {
-            target = enemy;
-
-            closestAngle =
-                Math.abs(angleDifference);
+        if(
+            Math.abs(difference)<smallestAngle &&
+            distance<wallDistance+.15
+        ){
+            target=enemy;
+            smallestAngle=Math.abs(difference);
         }
     }
 
-    if (!target) {
+    if(!target){
         return;
     }
 
-    target.health -= 1;
-    target.hitTime = .12;
+    target.health--;
+    target.hitTime=.12;
+    player.score+=50;
 
-    player.score += 50;
-
-    if (target.health <= 0) {
-        enemies.splice(
-            enemies.indexOf(target),
-            1
-        );
-
-        player.score += 150;
+    if(target.health<=0){
+        enemies.splice(enemies.indexOf(target),1);
+        player.score+=150;
     }
 
-    /* 다음 라운드 */
+    if(enemies.length===0){
+        playing=false;
+        announce("SECTOR CLEAR",2);
 
-    if (enemies.length === 0) {
-        playing = false;
+        setTimeout(function(){
+            round++;
 
-        showMessage(
-            "SECTOR CLEAR",
-            2
-        );
+            player.health=Math.min(
+                100,
+                player.health+25
+            );
 
-        setTimeout(function () {
-            round += 1;
-
-            player.health =
-                Math.min(
-                    100,
-                    player.health + 25
-                );
-
-            player.ammo = 12;
+            player.ammo=12;
 
             spawnRound();
+            playing=true;
 
-            playing = true;
-
-            showMessage(
-                "ROUND " +
-                round +
-                " · SPEED UP!",
+            announce(
+                "ROUND "+round+" · SPEED UP!",
                 2
             );
-        }, 1200);
+        },1200);
     }
 }
 
-/* 점프 */
-
-function jump() {
-    if (player.jumpHeight === 0) {
-        player.jumpVelocity = 2.7;
+function jump(){
+    if(player.jumpHeight===0){
+        player.jumpVelocity=2.7;
     }
 }
 
-/* 층 이동 */
+function changeFloor(newFloor){
+    player.floor=newFloor;
 
-function changeFloor(newFloor) {
-    player.floor = newFloor;
-
-    if (newFloor === 2) {
-        player.x = 2.5;
-        player.y = 3.5;
-        player.angle = 0;
-    } else {
-        player.x = 12.5;
-        player.y = 3.5;
-        player.angle = Math.PI;
+    if(newFloor===2){
+        player.x=2.5;
+        player.y=3.5;
+        player.angle=0;
+    }else{
+        player.x=12.5;
+        player.y=3.5;
+        player.angle=Math.PI;
     }
 
-    stairLock = 1;
+    stairLock=1;
 
     /*
-    층 이동 시 몬스터도 현재 층으로 이동시켜
-    보이지 않는 몬스터가 남는 현상을 방지합니다.
+    몬스터를 현재 층의 접근 가능한 위치로 옮겨
+    다른 층에 한 마리가 남는 현상을 방지합니다.
     */
 
-    const spawnList =
-        SPAWN_POINTS[newFloor];
+    const points=SPAWNS[newFloor];
 
-    enemies.forEach(
-        function (enemy, index) {
-            const spawn =
-                spawnList[
-                    index %
-                    spawnList.length
-                ];
+    enemies.forEach(function(enemy,index){
+        const point=points[index%points.length];
+        enemy.x=point[0];
+        enemy.y=point[1];
+    });
 
-            enemy.x = spawn[0];
-            enemy.y = spawn[1];
-        }
-    );
-
-    showMessage(
-        newFloor + "층 진입"
-    );
+    announce(newFloor+"층 진입");
 }
 
-/* 게임 상태 갱신 */
-
-function update(deltaTime) {
-    if (messageTime > 0) {
-        messageTime -= deltaTime;
+function update(deltaTime){
+    if(messageTime>0){
+        messageTime-=deltaTime;
     }
 
-    if (!playing) {
+    hurtTime=Math.max(
+        0,
+        hurtTime-deltaTime
+    );
+
+    if(!playing){
         return;
     }
 
-    if (stairLock > 0) {
-        stairLock -= deltaTime;
+    if(stairLock>0){
+        stairLock-=deltaTime;
     }
 
-    /* 점프 물리 */
+    player.jumpVelocity-=6.8*deltaTime;
 
-    player.jumpVelocity -=
-        6.8 * deltaTime;
+    player.jumpHeight=Math.max(
+        0,
+        player.jumpHeight+
+        player.jumpVelocity*deltaTime
+    );
 
-    player.jumpHeight =
-        Math.max(
-            0,
-            player.jumpHeight +
-            player.jumpVelocity *
-            deltaTime
-        );
-
-    if (
-        player.jumpHeight === 0 &&
-        player.jumpVelocity < 0
-    ) {
-        player.jumpVelocity = 0;
+    if(
+        player.jumpHeight===0 &&
+        player.jumpVelocity<0
+    ){
+        player.jumpVelocity=0;
     }
 
-    /* 이동 */
+    const speed=
+        (running ? 4 : 2.5)*deltaTime;
 
-    const speed =
-        (
-            running
-            ? 4
-            : 2.5
-        ) * deltaTime;
+    const forward=-joystick.y;
+    const sideways=joystick.x;
 
-    const forward =
-        -joystick.y;
+    const moveX=(
+        Math.cos(player.angle)*forward+
+        Math.cos(player.angle+Math.PI/2)*sideways
+    )*speed;
 
-    const sideways =
-        joystick.x;
+    const moveY=(
+        Math.sin(player.angle)*forward+
+        Math.sin(player.angle+Math.PI/2)*sideways
+    )*speed;
 
-    const moveX =
-        (
-            Math.cos(player.angle) *
-            forward +
-            Math.cos(
-                player.angle +
-                Math.PI / 2
-            ) * sideways
-        ) * speed;
-
-    const moveY =
-        (
-            Math.sin(player.angle) *
-            forward +
-            Math.sin(
-                player.angle +
-                Math.PI / 2
-            ) * sideways
-        ) * speed;
-
-    if (
-        !isSolid(
-            player.x +
-            moveX +
-            Math.sign(moveX) * .18,
-            player.y
-        )
-    ) {
-        player.x += moveX;
+    if(!solidAt(
+        player.x+moveX+Math.sign(moveX)*.18,
+        player.y
+    )){
+        player.x+=moveX;
     }
 
-    if (
-        !isSolid(
-            player.x,
-            player.y +
-            moveY +
-            Math.sign(moveY) * .18
-        )
-    ) {
-        player.y += moveY;
+    if(!solidAt(
+        player.x,
+        player.y+moveY+Math.sign(moveY)*.18
+    )){
+        player.y+=moveY;
     }
 
-    /* 계단 진입 */
-
-    if (
-        getTile(
-            player.x,
-            player.y
-        ) === 4 &&
-        stairLock <= 0
-    ) {
+    if(
+        tileAt(player.x,player.y)===4 &&
+        stairLock<=0
+    ){
         changeFloor(
-            player.floor === 1
-            ? 2
-            : 1
+            player.floor===1 ? 2 : 1
         );
     }
 
-    /*
-    라운드가 증가할수록
-    몬스터 속도가 증가합니다.
-    */
+    const enemySpeed=Math.min(
+        .76+round*.08,
+        1.6
+    );
 
-    const monsterSpeed =
-        Math.min(
-            .76 + round * .08,
-            1.6
+    for(const enemy of enemies){
+        enemy.hitTime=Math.max(
+            0,
+            enemy.hitTime-deltaTime
         );
 
-    for (const enemy of enemies) {
-        enemy.hitTime =
-            Math.max(
-                0,
-                enemy.hitTime -
-                deltaTime
-            );
+        const dx=player.x-enemy.x;
+        const dy=player.y-enemy.y;
+        const distance=Math.hypot(dx,dy);
 
-        const dx =
-            player.x - enemy.x;
-
-        const dy =
-            player.y - enemy.y;
-
-        const distance =
-            Math.hypot(dx, dy);
-
-        if (distance < .67) {
-            player.health -=
+        if(distance<.67){
+            player.health-=
                 Math.min(
-                    16 + round * 1.5,
+                    16+round*1.5,
                     31
-                ) * deltaTime;
-        } else if (distance < 10) {
-            const moveAmount =
-                monsterSpeed *
-                deltaTime;
+                )*deltaTime;
 
-            const nextX =
-                enemy.x +
-                dx / distance *
-                moveAmount;
+            hurtTime=.16;
+        }else if(distance<10){
+            const amount=
+                enemySpeed*deltaTime;
 
-            const nextY =
-                enemy.y +
-                dy / distance *
-                moveAmount;
+            const nextX=
+                enemy.x+
+                dx/distance*amount;
 
-            const xTile =
-                getTile(
-                    nextX,
-                    enemy.y
-                );
+            const nextY=
+                enemy.y+
+                dy/distance*amount;
 
-            const yTile =
-                getTile(
-                    enemy.x,
-                    nextY
-                );
+            const xTile=
+                tileAt(nextX,enemy.y);
 
-            if (
-                xTile === 0 ||
-                xTile === 4
-            ) {
-                enemy.x = nextX;
+            const yTile=
+                tileAt(enemy.x,nextY);
+
+            if(xTile===0 || xTile===4){
+                enemy.x=nextX;
             }
 
-            if (
-                yTile === 0 ||
-                yTile === 4
-            ) {
-                enemy.y = nextY;
+            if(yTile===0 || yTile===4){
+                enemy.y=nextY;
             }
         }
     }
 
-    if (player.health <= 0) {
-        player.health = 0;
-        playing = false;
+    if(player.health<=0){
+        player.health=0;
+        playing=false;
 
-        showMessage(
+        announce(
             "YOU DIED · 두 번 눌러 재시작",
             999
         );
     }
 }
 
-/* 벽과 배경 */
-
-function drawWorld() {
-    const sky =
-        ctx.createLinearGradient(
-            0,
-            0,
-            0,
-            HEIGHT / 2
-        );
-
-    sky.addColorStop(
-        0,
-        "#190403"
+function drawWorld(){
+    const sky=ctx.createLinearGradient(
+        0,0,0,HEIGHT/2
     );
+
+    sky.addColorStop(0,"#190403");
 
     sky.addColorStop(
         1,
-        player.floor === 1
-        ? "#782010"
-        : "#5b3020"
+        player.floor===1
+            ? "#782010"
+            : "#5b3020"
     );
 
-    ctx.fillStyle = sky;
+    ctx.fillStyle=sky;
+    ctx.fillRect(0,0,WIDTH,HEIGHT/2);
 
-    ctx.fillRect(
-        0,
-        0,
-        WIDTH,
-        HEIGHT / 2
-    );
+    ctx.fillStyle="#17120f";
+    ctx.fillRect(0,HEIGHT/2,WIDTH,HEIGHT/2);
 
-    ctx.fillStyle = "#17120f";
+    const fov=Math.PI/3;
+    const depthBuffer=[];
 
-    ctx.fillRect(
-        0,
-        HEIGHT / 2,
-        WIDTH,
-        HEIGHT / 2
-    );
+    for(let column=0;column<WIDTH;column+=2){
+        const rayAngle=
+            player.angle-
+            fov/2+
+            fov*column/WIDTH;
 
-    const fieldOfView =
-        Math.PI / 3;
+        const ray=castRay(rayAngle);
 
-    const depthBuffer = [];
+        const distance=
+            ray.distance*
+            Math.cos(rayAngle-player.angle);
 
-    for (
-        let column = 0;
-        column < WIDTH;
-        column += 2
-    ) {
-        const rayAngle =
-            player.angle -
-            fieldOfView / 2 +
-            fieldOfView *
-            column / WIDTH;
+        let wallHeight=Math.min(
+            HEIGHT,
+            HEIGHT/Math.max(distance,.01)
+        );
 
-        const ray =
-            castRay(rayAngle);
+        let wallY=
+            HEIGHT/2-
+            wallHeight/2+
+            player.jumpHeight*95;
 
-        const correctedDistance =
-            ray.distance *
-            Math.cos(
-                rayAngle -
-                player.angle
-            );
+        depthBuffer[column/2]=distance;
 
-        let wallHeight =
-            Math.min(
-                HEIGHT,
-                HEIGHT /
-                Math.max(
-                    correctedDistance,
-                    .01
-                )
-            );
-
-        let wallY =
-            HEIGHT / 2 -
-            wallHeight / 2 +
-            player.jumpHeight * 95;
-
-        depthBuffer[column / 2] =
-            correctedDistance;
-
-        if (ray.type === 2) {
-            ctx.fillStyle = "#3e5946";
-        } else if (ray.type === 3) {
-            ctx.fillStyle = "#624568";
-        } else if (ray.type === 5) {
-            ctx.fillStyle = "#65442d";
-        } else {
-            ctx.fillStyle = "#793025";
+        if(ray.type===2){
+            ctx.fillStyle="#3e5946";
+        }else if(ray.type===3){
+            ctx.fillStyle="#624568";
+        }else if(ray.type===5){
+            ctx.fillStyle="#65442d";
+        }else{
+            ctx.fillStyle="#793025";
         }
 
-        ctx.globalAlpha =
-            Math.max(
-                .2,
-                1 -
-                correctedDistance / 15
-            );
+        ctx.globalAlpha=Math.max(
+            .2,
+            1-distance/15
+        );
 
-        if (ray.type === 5) {
-            wallHeight *= .48;
+        if(ray.type===5){
+            wallHeight*=.48;
 
-            wallY =
-                HEIGHT / 2 +
-                wallHeight * .05 +
-                player.jumpHeight * 95;
+            wallY=
+                HEIGHT/2+
+                wallHeight*.05+
+                player.jumpHeight*95;
         }
 
         ctx.fillRect(
@@ -1037,703 +756,703 @@ function drawWorld() {
             wallHeight
         );
 
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha=1;
     }
 
-    drawEnemies(
-        depthBuffer,
-        fieldOfView
-    );
+    drawEnemies(depthBuffer,fov);
+    drawPortal(depthBuffer,fov);
 }
 
-/* 몬스터 */
-
-function drawEnemies(
-    depthBuffer,
-    fieldOfView
-) {
-    const sortedEnemies =
-        enemies
-        .map(function (enemy) {
-            return {
-                enemy: enemy,
-
-                distance:
-                    Math.hypot(
-                        enemy.x -
-                        player.x,
-
-                        enemy.y -
-                        player.y
-                    ),
-
-                angle:
-                    Math.atan2(
-                        enemy.y -
-                        player.y,
-
-                        enemy.x -
-                        player.x
-                    )
+function drawEnemies(depthBuffer,fov){
+    const visible=enemies
+        .map(function(enemy){
+            return{
+                enemy:enemy,
+                distance:Math.hypot(
+                    enemy.x-player.x,
+                    enemy.y-player.y
+                ),
+                angle:Math.atan2(
+                    enemy.y-player.y,
+                    enemy.x-player.x
+                )
             };
         })
-        .sort(function (a, b) {
-            return b.distance -
-                   a.distance;
+        .sort(function(a,b){
+            return b.distance-a.distance;
         });
 
-    for (
-        const data of sortedEnemies
-    ) {
-        let angleDifference =
-            data.angle -
-            player.angle;
+    for(const data of visible){
+        let difference=
+            data.angle-player.angle;
 
-        angleDifference =
-            Math.atan2(
-                Math.sin(angleDifference),
-                Math.cos(angleDifference)
-            );
-
-        if (
-            Math.abs(angleDifference) >
-            fieldOfView * .62
-        ) {
-            continue;
-        }
-
-        const screenX =
-            WIDTH / 2 +
-            angleDifference /
-            fieldOfView *
-            WIDTH;
-
-        const size =
-            Math.min(
-                300,
-                380 /
-                Math.max(
-                    data.distance,
-                    .2
-                )
-            );
-
-        const depthIndex =
-            Math.max(
-                0,
-                Math.min(
-                    depthBuffer.length - 1,
-                    Math.floor(
-                        screenX / 2
-                    )
-                )
-            );
-
-        if (
-            data.distance >
-            depthBuffer[
-                depthIndex
-            ] + .25
-        ) {
-            continue;
-        }
-
-        const centerY =
-            HEIGHT / 2 -
-            size * .12 +
-            player.jumpHeight * 95;
-
-        /* 몸 */
-
-        ctx.fillStyle =
-            data.enemy.hitTime > 0
-            ? "#ffffff"
-            : "#4d0b07";
-
-        ctx.fillRect(
-            screenX - size * .25,
-            centerY,
-            size * .5,
-            size * .58
+        difference=Math.atan2(
+            Math.sin(difference),
+            Math.cos(difference)
         );
 
-        /* 머리 */
+        if(Math.abs(difference)>fov*.62){
+            continue;
+        }
 
-        ctx.fillStyle =
-            data.enemy.hitTime > 0
-            ? "#ffffff"
-            : "#d13b20";
+        const screenX=
+            WIDTH/2+
+            difference/fov*WIDTH;
+
+        const size=Math.min(
+            300,
+            380/Math.max(data.distance,.2)
+        );
+
+        const index=Math.max(
+            0,
+            Math.min(
+                depthBuffer.length-1,
+                Math.floor(screenX/2)
+            )
+        );
+
+        if(
+            data.distance>
+            depthBuffer[index]+.25
+        ){
+            continue;
+        }
+
+        const centerY=
+            HEIGHT/2-
+            size*.12+
+            player.jumpHeight*95;
+
+        ctx.fillStyle=
+            data.enemy.hitTime>0
+                ? "#fff"
+                : "#4d0b07";
+
+        ctx.fillRect(
+            screenX-size*.25,
+            centerY,
+            size*.5,
+            size*.58
+        );
+
+        ctx.fillStyle=
+            data.enemy.hitTime>0
+                ? "#fff"
+                : "#d13b20";
 
         ctx.beginPath();
 
         ctx.arc(
             screenX,
-            centerY - size * .13,
-            size * .25,
+            centerY-size*.13,
+            size*.25,
             0,
-            Math.PI * 2
+            Math.PI*2
         );
 
         ctx.fill();
 
-        /* 왼쪽 뿔 */
-
-        ctx.fillStyle = "#e6cc92";
+        ctx.fillStyle="#e6cc92";
 
         ctx.beginPath();
 
         ctx.moveTo(
-            screenX - size * .18,
-            centerY - size * .27
+            screenX-size*.18,
+            centerY-size*.27
         );
 
         ctx.lineTo(
-            screenX - size * .34,
-            centerY - size * .49
+            screenX-size*.34,
+            centerY-size*.49
         );
 
         ctx.lineTo(
-            screenX - size * .06,
-            centerY - size * .31
+            screenX-size*.06,
+            centerY-size*.31
         );
 
         ctx.fill();
-
-        /* 오른쪽 뿔 */
 
         ctx.beginPath();
 
         ctx.moveTo(
-            screenX + size * .18,
-            centerY - size * .27
+            screenX+size*.18,
+            centerY-size*.27
         );
 
         ctx.lineTo(
-            screenX + size * .34,
-            centerY - size * .49
+            screenX+size*.34,
+            centerY-size*.49
         );
 
         ctx.lineTo(
-            screenX + size * .06,
-            centerY - size * .31
+            screenX+size*.06,
+            centerY-size*.31
         );
 
         ctx.fill();
 
-        /* 눈 */
-
-        ctx.fillStyle = "#fff04e";
+        ctx.fillStyle="#fff04e";
 
         ctx.fillRect(
-            screenX - size * .13,
-            centerY - size * .2,
-            size * .08,
-            size * .06
+            screenX-size*.13,
+            centerY-size*.2,
+            size*.08,
+            size*.06
         );
 
         ctx.fillRect(
-            screenX + size * .05,
-            centerY - size * .2,
-            size * .08,
-            size * .06
+            screenX+size*.05,
+            centerY-size*.2,
+            size*.08,
+            size*.06
         );
     }
 }
 
-/* 총과 HUD */
+/* 직관적으로 보이는 층 이동 포탈 */
 
-function drawHud() {
-    /* 총 몸통 */
+function drawPortal(depthBuffer,fov){
+    const portal=PORTALS[player.floor];
 
-    ctx.fillStyle = "#302925";
+    const dx=portal.x-player.x;
+    const dy=portal.y-player.y;
 
-    ctx.fillRect(
-        WIDTH / 2 - 62,
-        HEIGHT - 132 +
-        player.jumpHeight * 30,
-        124,
-        132
+    const distance=Math.hypot(dx,dy);
+
+    let difference=
+        Math.atan2(dy,dx)-player.angle;
+
+    difference=Math.atan2(
+        Math.sin(difference),
+        Math.cos(difference)
     );
 
-    ctx.fillStyle = "#101010";
-
-    ctx.fillRect(
-        WIDTH / 2 - 22,
-        HEIGHT - 205 +
-        player.jumpHeight * 30,
-        44,
-        116
-    );
-
-    /* 총구 화염 */
-
-    if (muzzleFlash > 0) {
-        ctx.fillStyle = "#ffd447";
-
-        ctx.beginPath();
-
-        ctx.arc(
-            WIDTH / 2,
-            HEIGHT - 207 +
-            player.jumpHeight * 30,
-            42,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fill();
-
-        muzzleFlash -= 1;
+    if(Math.abs(difference)>fov*.58){
+        return;
     }
 
-    /* 조준점 */
+    const screenX=
+        WIDTH/2+
+        difference/fov*WIDTH;
 
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 2;
+    const depthIndex=Math.max(
+        0,
+        Math.min(
+            depthBuffer.length-1,
+            Math.floor(screenX/2)
+        )
+    );
+
+    if(
+        distance>
+        depthBuffer[depthIndex]+.3
+    ){
+        return;
+    }
+
+    const size=Math.min(
+        320,
+        430/Math.max(distance,.2)
+    );
+
+    const centerY=
+        HEIGHT/2+
+        player.jumpHeight*95;
+
+    ctx.save();
+
+    ctx.globalAlpha=
+        .82+
+        .18*Math.sin(
+            performance.now()*.01
+        );
+
+    const glow=
+        ctx.createRadialGradient(
+            screenX,
+            centerY,
+            5,
+            screenX,
+            centerY,
+            size*.44
+        );
+
+    glow.addColorStop(0,"#ffffff");
+    glow.addColorStop(.22,"#37eaff");
+    glow.addColorStop(.65,"#713cff");
+    glow.addColorStop(1,"rgba(18,0,43,0)");
+
+    ctx.fillStyle=glow;
 
     ctx.beginPath();
 
-    ctx.moveTo(
-        WIDTH / 2 - 12,
-        HEIGHT / 2
+    ctx.ellipse(
+        screenX,
+        centerY,
+        size*.44,
+        size*.7,
+        0,
+        0,
+        Math.PI*2
     );
 
-    ctx.lineTo(
-        WIDTH / 2 + 12,
-        HEIGHT / 2
+    ctx.fill();
+
+    ctx.strokeStyle="#88f6ff";
+    ctx.lineWidth=Math.max(
+        3,
+        size*.035
     );
 
-    ctx.moveTo(
-        WIDTH / 2,
-        HEIGHT / 2 - 12
-    );
+    ctx.beginPath();
 
-    ctx.lineTo(
-        WIDTH / 2,
-        HEIGHT / 2 + 12
+    ctx.ellipse(
+        screenX,
+        centerY,
+        size*.31,
+        size*.59,
+        0,
+        0,
+        Math.PI*2
     );
 
     ctx.stroke();
 
-    /* 하단 상태창 */
+    ctx.fillStyle="#ffffff";
+    ctx.font=
+        "bold "+
+        Math.max(12,size*.08)+
+        "px Arial";
 
-    ctx.fillStyle =
-        "rgba(0,0,0,.87)";
+    ctx.textAlign="center";
+
+    ctx.fillText(
+        portal.label,
+        screenX,
+        centerY+size*.8
+    );
+
+    ctx.textAlign="left";
+    ctx.restore();
+}
+
+function drawHud(){
+    /* 총 */
+
+    ctx.fillStyle="#302925";
 
     ctx.fillRect(
-        0,
-        HEIGHT - 64,
-        WIDTH,
-        64
+        WIDTH/2-62,
+        HEIGHT-132+
+        player.jumpHeight*30,
+        124,
+        132
     );
 
-    ctx.font =
-        "bold 22px monospace";
+    ctx.fillStyle="#101010";
 
-    ctx.fillStyle =
-        player.health < 30
-        ? "#ff3322"
-        : "#f0a73b";
-
-    ctx.fillText(
-        "HP " +
-        Math.ceil(player.health),
-        18,
-        HEIGHT - 25
+    ctx.fillRect(
+        WIDTH/2-22,
+        HEIGHT-205+
+        player.jumpHeight*30,
+        44,
+        116
     );
 
-    ctx.fillStyle = "#eeeeee";
-
-    ctx.fillText(
-        "AMMO " +
-        player.ammo +
-        "/12",
-        WIDTH / 2 - 78,
-        HEIGHT - 25
-    );
-
-    ctx.fillStyle = "#f0a73b";
-
-    ctx.fillText(
-        "R" + round +
-        " F" + player.floor +
-        " ENEMY " +
-        enemies.length,
-        WIDTH - 245,
-        HEIGHT - 25
-    );
-
-    /* 마지막 몬스터 방향 표시 */
-
-    if (enemies.length > 0) {
-        const nearest =
-            enemies.reduce(
-                function (a, b) {
-                    const distanceA =
-                        Math.hypot(
-                            a.x - player.x,
-                            a.y - player.y
-                        );
-
-                    const distanceB =
-                        Math.hypot(
-                            b.x - player.x,
-                            b.y - player.y
-                        );
-
-                    return (
-                        distanceA <
-                        distanceB
-                    ) ? a : b;
-                }
-            );
-
-        let direction =
-            Math.atan2(
-                nearest.y -
-                player.y,
-
-                nearest.x -
-                player.x
-            ) - player.angle;
-
-        direction =
-            Math.atan2(
-                Math.sin(direction),
-                Math.cos(direction)
-            );
-
-        ctx.save();
-
-        ctx.translate(
-            WIDTH / 2,
-            42
-        );
-
-        ctx.rotate(direction);
-
-        ctx.fillStyle = "#ff3b21";
+    if(muzzleFlash>0){
+        ctx.fillStyle="#ffd447";
 
         ctx.beginPath();
 
-        ctx.moveTo(0, -17);
-        ctx.lineTo(-11, 9);
-        ctx.lineTo(11, 9);
+        ctx.arc(
+            WIDTH/2,
+            HEIGHT-207+
+            player.jumpHeight*30,
+            42,
+            0,
+            Math.PI*2
+        );
 
+        ctx.fill();
+        muzzleFlash--;
+    }
+
+    /* 조준점 */
+
+    ctx.strokeStyle="#fff";
+    ctx.lineWidth=2;
+
+    ctx.beginPath();
+
+    ctx.moveTo(WIDTH/2-12,HEIGHT/2);
+    ctx.lineTo(WIDTH/2+12,HEIGHT/2);
+
+    ctx.moveTo(WIDTH/2,HEIGHT/2-12);
+    ctx.lineTo(WIDTH/2,HEIGHT/2+12);
+
+    ctx.stroke();
+
+    /* 상태 표시 */
+
+    ctx.fillStyle="rgba(0,0,0,.87)";
+    ctx.fillRect(0,HEIGHT-64,WIDTH,64);
+
+    ctx.font="bold 22px monospace";
+
+    ctx.fillStyle=
+        player.health<30
+            ? "#ff3322"
+            : "#f0a73b";
+
+    ctx.fillText(
+        "HP "+Math.ceil(player.health),
+        18,
+        HEIGHT-25
+    );
+
+    ctx.fillStyle="#eee";
+
+    ctx.fillText(
+        "AMMO "+player.ammo+"/12",
+        WIDTH/2-78,
+        HEIGHT-25
+    );
+
+    ctx.fillStyle="#f0a73b";
+
+    ctx.fillText(
+        "R"+round+
+        " F"+player.floor+
+        " ENEMY "+enemies.length,
+        WIDTH-245,
+        HEIGHT-25
+    );
+
+    /* 가장 가까운 적 방향 */
+
+    if(enemies.length>0){
+        const nearest=enemies.reduce(
+            function(a,b){
+                const aDistance=Math.hypot(
+                    a.x-player.x,
+                    a.y-player.y
+                );
+
+                const bDistance=Math.hypot(
+                    b.x-player.x,
+                    b.y-player.y
+                );
+
+                return aDistance<bDistance
+                    ? a
+                    : b;
+            }
+        );
+
+        let direction=
+            Math.atan2(
+                nearest.y-player.y,
+                nearest.x-player.x
+            )-player.angle;
+
+        direction=Math.atan2(
+            Math.sin(direction),
+            Math.cos(direction)
+        );
+
+        ctx.save();
+        ctx.translate(WIDTH/2,42);
+        ctx.rotate(direction);
+
+        ctx.fillStyle="#ff3b21";
+
+        ctx.beginPath();
+        ctx.moveTo(0,-17);
+        ctx.lineTo(-11,9);
+        ctx.lineTo(11,9);
         ctx.fill();
 
         ctx.restore();
     }
 
-    /* 안내 메시지 */
-
-    if (messageTime > 0) {
-        ctx.fillStyle =
-            "rgba(0,0,0,.72)";
+    if(messageTime>0){
+        ctx.fillStyle="rgba(0,0,0,.72)";
 
         ctx.fillRect(
-            WIDTH / 2 - 230,
-            HEIGHT / 2 - 45,
+            WIDTH/2-230,
+            HEIGHT/2-45,
             460,
             90
         );
 
-        ctx.fillStyle = "#ef4827";
-
-        ctx.font =
-            "bold 34px Impact";
-
-        ctx.textAlign = "center";
+        ctx.fillStyle="#ef4827";
+        ctx.font="bold 34px Impact";
+        ctx.textAlign="center";
 
         ctx.fillText(
             message,
-            WIDTH / 2,
-            HEIGHT / 2 + 12
+            WIDTH/2,
+            HEIGHT/2+12
         );
 
-        ctx.textAlign = "left";
+        ctx.textAlign="left";
     }
 }
 
-/* 게임 반복 */
+/* 플레이어 피격 효과 */
 
-function gameLoop(timestamp) {
-    const deltaTime =
-        Math.min(
-            .04,
-            (
-                timestamp -
-                lastFrame
-            ) / 1000 || 0
-        );
+function drawDamageEffect(){
+    if(hurtTime<=0){
+        return;
+    }
 
-    lastFrame = timestamp;
+    const alpha=Math.min(
+        .42,
+        hurtTime*2.6
+    );
 
-    update(deltaTime);
-    drawWorld();
-    drawHud();
+    ctx.fillStyle=
+        "rgba(255,0,0,"+
+        alpha+
+        ")";
 
-    requestAnimationFrame(
-        gameLoop
+    ctx.fillRect(
+        0,
+        0,
+        WIDTH,
+        HEIGHT
+    );
+
+    ctx.strokeStyle="#ff2418";
+    ctx.lineWidth=18;
+
+    ctx.strokeRect(
+        5,
+        5,
+        WIDTH-10,
+        HEIGHT-10
     );
 }
 
-/* 시작 버튼 */
+function gameLoop(timestamp){
+    const deltaTime=Math.min(
+        .04,
+        (timestamp-lastFrame)/1000 || 0
+    );
+
+    lastFrame=timestamp;
+
+    update(deltaTime);
+
+    ctx.save();
+
+    /* 피격 시 화면 흔들림 */
+
+    if(hurtTime>0){
+        ctx.translate(
+            (Math.random()-.5)*12,
+            (Math.random()-.5)*12
+        );
+    }
+
+    drawWorld();
+    drawHud();
+    drawDamageEffect();
+
+    ctx.restore();
+
+    requestAnimationFrame(gameLoop);
+}
+
+/* 시작 */
 
 document
-    .getElementById(
-        "startButton"
-    )
-    .onclick = function () {
+    .getElementById("startButton")
+    .onclick=function(){
         document
-            .getElementById(
-                "startScreen"
-            )
-            .style.display = "none";
+            .getElementById("start")
+            .style.display="none";
 
         resetGame();
     };
 
-/* 조이스틱 */
+/* 이동 조이스틱 */
 
-const joystickBase =
-    document.getElementById(
-        "joystick"
-    );
+const joystickBase=
+    document.getElementById("joystick");
 
-const joystickKnob =
-    document.getElementById(
-        "joystickKnob"
-    );
+const joystickKnob=
+    document.getElementById("knob");
 
-let joystickPointer = null;
+let joystickPointer=null;
 
-function moveJoystick(event) {
-    const rect =
-        joystickBase
-        .getBoundingClientRect();
+function moveJoystick(event){
+    const rect=
+        joystickBase.getBoundingClientRect();
 
-    let deltaX =
-        event.clientX -
-        rect.left -
-        rect.width / 2;
+    let dx=
+        event.clientX-
+        rect.left-
+        rect.width/2;
 
-    let deltaY =
-        event.clientY -
-        rect.top -
-        rect.height / 2;
+    let dy=
+        event.clientY-
+        rect.top-
+        rect.height/2;
 
-    const maximum =
-        rect.width * .31;
+    const maximum=rect.width*.31;
+    const length=Math.hypot(dx,dy);
 
-    const length =
-        Math.hypot(
-            deltaX,
-            deltaY
-        );
-
-    if (length > maximum) {
-        deltaX *=
-            maximum / length;
-
-        deltaY *=
-            maximum / length;
+    if(length>maximum){
+        dx*=maximum/length;
+        dy*=maximum/length;
     }
 
-    joystick.x =
-        deltaX / maximum;
+    joystick.x=dx/maximum;
+    joystick.y=dy/maximum;
 
-    joystick.y =
-        deltaY / maximum;
-
-    joystickKnob.style.transform =
-        "translate(" +
-        deltaX + "px," +
-        deltaY + "px)";
+    joystickKnob.style.transform=
+        "translate("+dx+"px,"+dy+"px)";
 }
 
-joystickBase.onpointerdown =
-    function (event) {
-        event.preventDefault();
+joystickBase.onpointerdown=function(event){
+    event.preventDefault();
 
-        joystickPointer =
-            event.pointerId;
+    joystickPointer=event.pointerId;
 
-        joystickBase
-            .setPointerCapture(
-                joystickPointer
-            );
-
-        moveJoystick(event);
-    };
-
-joystickBase.onpointermove =
-    function (event) {
-        if (
-            event.pointerId ===
-            joystickPointer
-        ) {
-            moveJoystick(event);
-        }
-    };
-
-function stopJoystick(event) {
-    if (
-        event.pointerId !==
+    joystickBase.setPointerCapture(
         joystickPointer
-    ) {
+    );
+
+    moveJoystick(event);
+};
+
+joystickBase.onpointermove=function(event){
+    if(event.pointerId===joystickPointer){
+        moveJoystick(event);
+    }
+};
+
+function stopJoystick(event){
+    if(event.pointerId!==joystickPointer){
         return;
     }
 
-    joystickPointer = null;
+    joystickPointer=null;
+    joystick.x=0;
+    joystick.y=0;
 
-    joystick.x = 0;
-    joystick.y = 0;
-
-    joystickKnob.style.transform =
+    joystickKnob.style.transform=
         "translate(0,0)";
 }
 
-joystickBase.onpointerup =
-    stopJoystick;
+joystickBase.onpointerup=stopJoystick;
+joystickBase.onpointercancel=stopJoystick;
 
-joystickBase.onpointercancel =
-    stopJoystick;
+/*
+RUN 토글:
+한 번 누르면 계속 달리고
+다시 누르면 일반 이동으로 돌아옵니다.
+*/
 
-/* 터치 버튼 */
+const runButton=
+    document.getElementById("runButton");
 
-function bindButton(
-    elementId,
-    startAction,
-    endAction
-) {
-    const element =
-        document.getElementById(
-            elementId
-        );
+runButton.onpointerdown=function(event){
+    event.preventDefault();
 
-    element.onpointerdown =
-        function (event) {
-            event.preventDefault();
+    running=!running;
 
-            element.classList.add(
-                "active"
-            );
+    runButton.classList.toggle(
+        "running",
+        running
+    );
 
-            startAction();
-        };
-
-    element.onpointerup =
-    element.onpointercancel =
-        function (event) {
-            event.preventDefault();
-
-            element.classList.remove(
-                "active"
-            );
-
-            if (endAction) {
-                endAction();
-            }
-        };
-}
-
-/* 달리기는 누르고 있는 동안 작동 */
-
-bindButton(
-    "runButton",
-    function () {
-        running = true;
-    },
-    function () {
-        running = false;
-    }
-);
+    runButton.textContent=
+        running ? "RUN ON" : "RUN";
+};
 
 /* 점프 */
 
-bindButton(
-    "jumpButton",
-    jump
-);
+const jumpButton=
+    document.getElementById("jumpButton");
+
+jumpButton.onpointerdown=function(event){
+    event.preventDefault();
+    jumpButton.classList.add("active");
+    jump();
+};
+
+jumpButton.onpointerup=
+jumpButton.onpointercancel=function(event){
+    event.preventDefault();
+    jumpButton.classList.remove("active");
+};
 
 /* 발사 */
 
-bindButton(
-    "fireButton",
-    shoot
-);
+const fireButton=
+    document.getElementById("fireButton");
 
-/* 빈 화면 드래그로 조준 */
+fireButton.onpointerdown=function(event){
+    event.preventDefault();
+    fireButton.classList.add("active");
+    shoot();
+};
 
-let lookPointer = null;
-let previousLookX = 0;
+fireButton.onpointerup=
+fireButton.onpointercancel=function(event){
+    event.preventDefault();
+    fireButton.classList.remove("active");
+};
 
-canvas.onpointerdown =
-    function (event) {
-        if (
-            event.pointerType ===
-            "touch"
-        ) {
-            lookPointer =
-                event.pointerId;
+/* 빈 화면 드래그로 시점 회전 */
 
-            previousLookX =
-                event.clientX;
+let lookPointer=null;
+let previousLookX=0;
 
-            canvas.setPointerCapture(
-                lookPointer
-            );
-        }
-    };
+canvas.onpointerdown=function(event){
+    if(event.pointerType==="touch"){
+        lookPointer=event.pointerId;
+        previousLookX=event.clientX;
 
-canvas.onpointermove =
-    function (event) {
-        if (
-            event.pointerId ===
+        canvas.setPointerCapture(
             lookPointer
-        ) {
-            player.angle +=
-                (
-                    event.clientX -
-                    previousLookX
-                ) * .006;
+        );
+    }
+};
 
-            previousLookX =
-                event.clientX;
-        }
-    };
+canvas.onpointermove=function(event){
+    if(event.pointerId===lookPointer){
+        player.angle+=
+            (event.clientX-previousLookX)*.006;
 
-canvas.onpointerup =
-canvas.onpointercancel =
-    function (event) {
-        if (
-            event.pointerId ===
-            lookPointer
-        ) {
-            lookPointer = null;
-        }
-    };
+        previousLookX=event.clientX;
+    }
+};
 
-/* 사망 후 두 번 눌러 재시작 */
+canvas.onpointerup=
+canvas.onpointercancel=function(event){
+    if(event.pointerId===lookPointer){
+        lookPointer=null;
+    }
+};
 
-canvas.ondblclick =
-    function () {
-        if (
-            !playing &&
-            player.health <= 0
-        ) {
-            resetGame();
-        }
-    };
+/* 사망 후 화면 두 번 터치 */
 
-/* 최초 상태 */
+canvas.ondblclick=function(){
+    if(
+        !playing &&
+        player.health<=0
+    ){
+        resetGame();
+    }
+};
 
 resetGame();
-
-requestAnimationFrame(
-    gameLoop
-);
+requestAnimationFrame(gameLoop);
 </script>
 
 </body>
