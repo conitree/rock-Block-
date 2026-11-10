@@ -3,641 +3,394 @@ import streamlit as st
 import requests
 import pandas as pd
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
-# =====================================
-# 1. 기본 설정
-# =====================================
-
+# -----------------------------
+# 기본 설정
+# -----------------------------
 st.set_page_config(
-    page_title="우산 챙겨! ☔",
-    page_icon="☔",
+    page_title="우산 챙겨!",
+    page_icon="☂️",
     layout="wide"
 )
 
-TZ = ZoneInfo("Asia/Seoul")
+st.title("☂️ 우산 챙겨!")
+st.caption("오늘 날씨를 확인하고 외출을 준비해요.")
 
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(180deg,#eaf6ff,#ffffff);
+# -----------------------------
+# 전국 지역 목록
+# -----------------------------
+REGIONS = {
+    "서울특별시": [
+        "종로구", "중구", "용산구", "성동구", "광진구",
+        "동대문구", "중랑구", "성북구", "강북구", "도봉구",
+        "노원구", "은평구", "서대문구", "마포구", "양천구",
+        "강서구", "구로구", "금천구", "영등포구", "동작구",
+        "관악구", "서초구", "강남구", "송파구", "강동구"
+    ],
+    "부산광역시": [
+        "중구", "서구", "동구", "영도구", "부산진구",
+        "동래구", "남구", "북구", "해운대구", "사하구",
+        "금정구", "강서구", "연제구", "수영구", "사상구", "기장군"
+    ],
+    "대구광역시": [
+        "중구", "동구", "서구", "남구", "북구",
+        "수성구", "달서구", "달성군", "군위군"
+    ],
+    "인천광역시": [
+        "중구", "동구", "미추홀구", "연수구", "남동구",
+        "부평구", "계양구", "서구", "강화군", "옹진군"
+    ],
+    "광주광역시": ["동구", "서구", "남구", "북구", "광산구"],
+    "대전광역시": ["동구", "중구", "서구", "유성구", "대덕구"],
+    "울산광역시": ["중구", "남구", "동구", "북구", "울주군"],
+    "세종특별자치시": ["세종시"],
+    "경기도": [
+        "수원시", "성남시", "의정부시", "안양시", "부천시",
+        "광명시", "평택시", "동두천시", "안산시", "고양시",
+        "과천시", "구리시", "남양주시", "오산시", "시흥시",
+        "군포시", "의왕시", "하남시", "용인시", "파주시",
+        "이천시", "안성시", "김포시", "화성시", "광주시",
+        "양주시", "포천시", "여주시", "연천군", "가평군", "양평군"
+    ],
+    "강원특별자치도": [
+        "춘천시", "원주시", "강릉시", "동해시", "태백시",
+        "속초시", "삼척시", "홍천군", "횡성군", "영월군",
+        "평창군", "정선군", "철원군", "화천군", "양구군",
+        "인제군", "고성군", "양양군
+    ],
+    "충청북도": [
+        "청주시", "충주시", "제천시", "보은군", "옥천군",
+        "영동군", "증평군", "진천군", "괴산군", "음성군", "단양군"
+    ],
+    "충청남도": [
+        "천안시", "공주시", "보령시", "아산시", "서산시",
+        "논산시", "계룡시", "당진시", "금산군", "부여군",
+        "서천군", "청양군", "홍성군", "예산군", "태안군"
+    ],
+    "전북특별자치도": [
+        "전주시", "군산시", "익산시", "정읍시", "남원시",
+        "김제시", "완주군", "진안군", "무주군", "장수군",
+        "임실군", "순창군", "고창군", "부안군"
+    ],
+    "전라남도": [
+        "목포시", "여수시", "순천시", "나주시", "광양시",
+        "담양군", "곡성군", "구례군", "고흥군", "보성군",
+        "화순군", "장흥군", "강진군", "해남군", "영암군",
+        "무안군", "함평군", "영광군", "장성군", "완도군",
+        "진도군", "신안군"
+    ],
+    "경상북도": [
+        "포항시", "경주시", "김천시", "안동시", "구미시",
+        "영주시", "영천시", "상주시", "문경시", "경산시",
+        "의성군", "청송군", "영양군", "영덕군", "청도군",
+        "고령군", "성주군", "칠곡군", "예천군", "봉화군",
+        "울진군", "울릉군"
+    ],
+    "경상남도": [
+        "창원시", "진주시", "통영시", "사천시", "김해시",
+        "밀양시", "거제시", "양산시", "의령군", "함안군",
+        "창녕군", "고성군", "남해군", "하동군", "산청군",
+        "함양군", "거창군", "합천군"
+    ],
+    "제주특별자치도": ["제주시", "서귀포시"]
 }
-.title {
-    text-align:center;
-    font-size:42px;
-    font-weight:900;
-    color:#267db8;
-}
-.subtitle {
-    text-align:center;
-    color:#6689a5;
-    margin-bottom:30px;
-}
-.weather-box {
-    background:white;
-    padding:22px;
-    border-radius:18px;
-    border:1px solid #dcecf8;
-    margin:10px 0;
-    box-shadow:0 4px 12px rgba(50,100,150,.06);
-}
-.recommend {
-    background:#e8f4ff;
-    padding:18px;
-    border-radius:14px;
-    border-left:5px solid #3999d5;
-    margin:10px 0;
-    color:#245b80;
-}
-.alert {
-    background:#fff1e7;
-    padding:18px;
-    border-radius:14px;
-    border-left:5px solid #f39b47;
-    margin:10px 0;
-    color:#80501f;
-}
-</style>
-""", unsafe_allow_html=True)
 
-
-# =====================================
-# 2. 날씨 코드 해석
-# =====================================
-
+# -----------------------------
+# 날씨 코드 설명
+# -----------------------------
 WEATHER_CODES = {
-    0: ("맑음", "☀️"),
-    1: ("대체로 맑음", "🌤️"),
-    2: ("부분적으로 흐림", "⛅"),
-    3: ("흐림", "☁️"),
-    45: ("안개", "🌫️"),
-    48: ("서리 안개", "🌫️"),
-    51: ("약한 이슬비", "🌦️"),
-    53: ("이슬비", "🌦️"),
-    55: ("강한 이슬비", "🌧️"),
-    56: ("어는 이슬비", "🌧️"),
-    57: ("강한 어는 이슬비", "🌧️"),
-    61: ("약한 비", "🌦️"),
-    63: ("비", "🌧️"),
-    65: ("강한 비", "🌧️"),
-    66: ("어는 비", "🌧️"),
-    67: ("강한 어는 비", "🌧️"),
-    71: ("약한 눈", "🌨️"),
-    73: ("눈", "❄️"),
-    75: ("강한 눈", "❄️"),
-    77: ("싸락눈", "🌨️"),
-    80: ("약한 소나기", "🌦️"),
-    81: ("소나기", "🌧️"),
-    82: ("강한 소나기", "⛈️"),
-    85: ("약한 눈 소나기", "🌨️"),
-    86: ("강한 눈 소나기", "❄️"),
-    95: ("뇌우", "⛈️"),
-    96: ("우박 동반 뇌우", "⛈️"),
-    99: ("강한 우박 동반 뇌우", "⛈️")
+    0: "맑음 ☀️",
+    1: "대체로 맑음 🌤️",
+    2: "부분적으로 흐림 ⛅",
+    3: "흐림 ☁️",
+    45: "안개 🌫️",
+    48: "안개 🌫️",
+    51: "약한 이슬비 🌦️",
+    53: "이슬비 🌦️",
+    55: "강한 이슬비 🌧️",
+    61: "약한 비 🌧️",
+    63: "비 🌧️",
+    65: "강한 비 ☔",
+    71: "약한 눈 🌨️",
+    73: "눈 ❄️",
+    75: "강한 눈 ❄️",
+    80: "소나기 🌦️",
+    81: "소나기 🌧️",
+    82: "강한 소나기 ⛈️",
+    95: "뇌우 ⛈️",
+    96: "우박을 동반한 뇌우 ⛈️",
+    99: "강한 뇌우 ⛈️"
 }
 
+def weather_text(code):
+    return WEATHER_CODES.get(int(code), "날씨 정보 확인 중")
 
-def weather_description(code):
-    return WEATHER_CODES.get(
-        int(code),
-        ("날씨 정보 없음", "🌤️")
-    )
-
-
-# =====================================
-# 3. 지역 검색 API
-# =====================================
-
+# -----------------------------
+# 지역 검색
+# -----------------------------
 @st.cache_data(ttl=86400)
-def search_city(city):
-
+def search_city(region, city):
     url = "https://geocoding-api.open-meteo.com/v1/search"
 
+    # 지역명을 함께 검색해 동명이인 지역 혼동 줄이기
     params = {
-        "name": city,
-        "count": 10,
+        "name": f"{city} {region}",
+        "count": 20,
         "language": "ko",
         "format": "json",
         "countryCode": "KR"
     }
 
-    response = requests.get(
-        url,
-        params=params,
-        timeout=15
-    )
-
+    response = requests.get(url, params=params, timeout=15)
     response.raise_for_status()
 
-    data = response.json()
+    results = response.json().get("results", [])
 
-    return data.get("results", [])
+    if not results:
+        # 지역명이 포함된 검색이 안 되면 시·군·구 이름으로 재검색
+        params["name"] = city
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        results = response.json().get("results", [])
+
+    if not results:
+        return None
+
+    # 광역 지역명이 검색 결과의 행정구역 정보에 있는지 우선 확인
+    region_clean = region.replace("특별자치도", "").replace(
+        "특별시", ""
+    ).replace("광역시", "").replace("도", "")
+
+    for item in results:
+        admin1 = item.get("admin1", "")
+        admin2 = item.get("admin2", "")
+        location_text = admin1 + admin2
+
+        if region_clean in location_text or region in location_text:
+            return item
+
+    # 일치 항목이 없으면 첫 번째 국내 검색 결과 사용
+    return results[0]
 
 
-# =====================================
-# 4. 날씨 조회 API
-# =====================================
-
+# -----------------------------
+# 날씨 정보 가져오기
+# -----------------------------
 @st.cache_data(ttl=1800)
-def get_weather(lat, lon):
-
+def get_weather(latitude, longitude):
     url = "https://api.open-meteo.com/v1/forecast"
 
     params = {
-        "latitude": lat,
-        "longitude": lon,
-
+        "latitude": latitude,
+        "longitude": longitude,
         "current": (
-            "temperature_2m,"
-            "relative_humidity_2m,"
-            "apparent_temperature,"
-            "is_day,"
-            "precipitation,"
-            "rain,"
-            "showers,"
-            "snowfall,"
-            "weather_code,"
-            "wind_speed_10m"
+            "temperature_2m,relative_humidity_2m,"
+            "apparent_temperature,precipitation,"
+            "rain,showers,snowfall,weather_code,wind_speed_10m"
         ),
-
         "hourly": (
-            "temperature_2m,"
-            "apparent_temperature,"
-            "precipitation_probability,"
-            "precipitation,"
-            "rain,"
-            "showers,"
-            "snowfall,"
-            "weather_code,"
-            "wind_speed_10m"
+            "temperature_2m,apparent_temperature,"
+            "precipitation_probability,precipitation,"
+            "weather_code"
         ),
-
         "daily": (
-            "weather_code,"
-            "temperature_2m_max,"
-            "temperature_2m_min,"
-            "apparent_temperature_max,"
-            "apparent_temperature_min,"
-            "precipitation_sum,"
-            "precipitation_probability_max,"
-            "sunrise,"
-            "sunset,"
-            "wind_speed_10m_max"
+            "weather_code,temperature_2m_max,temperature_2m_min,"
+            "precipitation_probability_max,precipitation_sum"
         ),
-
         "timezone": "Asia/Seoul",
         "forecast_days": 2
     }
 
-    response = requests.get(
-        url,
-        params=params,
-        timeout=20
-    )
-
+    response = requests.get(url, params=params, timeout=20)
     response.raise_for_status()
-
     return response.json()
 
 
-# =====================================
-# 5. 옷차림 추천
-# =====================================
+# -----------------------------
+# 지역 선택 화면
+# -----------------------------
+st.subheader("📍 지역 선택")
 
-def clothes_recommend(min_temp, max_temp, feels):
+col1, col2 = st.columns(2)
 
-    tips = []
-
-    if max_temp <= 0:
-        tips.append("🧥 매우 추워요. 두꺼운 겨울 외투를 추천해요.")
-
-    elif max_temp <= 5:
-        tips.append("🧥 추운 날씨예요. 패딩이나 두꺼운 코트를 챙기세요.")
-
-    elif max_temp <= 10:
-        tips.append("🧥 쌀쌀해요. 따뜻한 외투를 입는 것이 좋아요.")
-
-    elif max_temp <= 16:
-        tips.append("🧶 선선해요. 가디건이나 재킷을 추천해요.")
-
-    elif max_temp <= 22:
-        tips.append("👕 긴팔 옷이나 가벼운 겉옷이 좋아요.")
-
-    elif max_temp <= 27:
-        tips.append("🌿 따뜻해요. 얇고 편안한 옷차림을 추천해요.")
-
-    else:
-        tips.append("☀️ 더워요. 통풍이 잘되는 얇은 옷을 입으세요.")
-
-    if min_temp <= 10 and max_temp >= 15:
-        tips.append("🌡️ 아침과 낮의 기온 차가 커요. 벗기 쉬운 겉옷을 챙기세요.")
-
-    if feels <= 5:
-        tips.append("🥶 현재 체감온도가 낮아요. 목도리 등 보온용품을 고려하세요.")
-
-    elif feels >= 30:
-        tips.append("🥵 체감온도가 높아요. 시원한 곳에서 쉬고 물을 챙기세요.")
-
-    return tips
-
-
-# =====================================
-# 6. 외출 준비물 추천
-# =====================================
-
-def prepare_items(pop, weather_code, max_temp, wind):
-
-    items = []
-
-    # 비
-    if pop >= 40 or weather_code in [
-        51, 53, 55, 56, 57,
-        61, 63, 65, 66, 67,
-        80, 81, 82
-    ]:
-        items.append("☔ 우산")
-
-    # 눈
-    if weather_code in [71, 73, 75, 77, 85, 86]:
-        items.append("❄️ 따뜻한 외투")
-
-    if max_temp <= 10:
-        items.append("🧥 겉옷")
-
-    if max_temp >= 28:
-        items.append("💧 물")
-        items.append("🧴 자외선 차단제")
-
-    if wind >= 30:
-        items.append("🌬️ 바람에 대비할 겉옷")
-
-    if not items:
-        items.append("🎒 개인 소지품")
-
-    return items
-
-
-# =====================================
-# 7. 앱 제목
-# =====================================
-
-st.markdown(
-    '<div class="title">☔ 우산 챙겨!</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="subtitle">'
-    '오늘 날씨부터 옷차림까지 똑똑하게!'
-    '</div>',
-    unsafe_allow_html=True
-)
-
-now = datetime.now(TZ)
-
-st.caption(
-    f"📅 {now.strftime('%Y년 %m월 %d일')} "
-    f" | 🕒 {now.strftime('%H:%M')} 기준"
-)
-
-
-# =====================================
-# 8. 지역 선택
-# =====================================
-
-st.sidebar.title("📍 지역 설정")
-
-city = st.sidebar.text_input(
-    "지역을 입력하세요",
-    value="청주시",
-    placeholder="예: 청주시, 서울특별시"
-)
-
-if st.sidebar.button("지역 검색", use_container_width=True):
-
-    with st.spinner("지역을 찾고 있어요..."):
-
-        try:
-            results = search_city(city)
-
-            if results:
-                st.session_state["city_results"] = results
-            else:
-                st.session_state.pop("city_results", None)
-                st.sidebar.error("검색 결과가 없어요.")
-
-        except requests.RequestException:
-            st.sidebar.error("지역 검색에 실패했어요.")
-
-if "city_results" in st.session_state:
-
-    results = st.session_state["city_results"]
-
-    options = {
-        f"{r['name']} / {r.get('admin1', '')}": r
-        for r in results
-    }
-
-    selected = st.sidebar.selectbox(
-        "검색된 지역 선택",
-        list(options.keys())
+with col1:
+    selected_region = st.selectbox(
+        "시·도 선택",
+        list(REGIONS.keys())
     )
 
-    if st.sidebar.button("이 지역 날씨 보기", use_container_width=True):
-        st.session_state["selected_location"] = options[selected]
+with col2:
+    selected_city = st.selectbox(
+        "시·군·구 선택",
+        REGIONS[selected_region]
+    )
 
-# 기본 위치: 청주시
-if "selected_location" not in st.session_state:
-    st.session_state["selected_location"] = {
-        "name": "청주시",
-        "latitude": 36.6424,
-        "longitude": 127.4890,
-        "admin1": "충청북도"
-    }
+st.write(f"선택한 지역: **{selected_region} {selected_city}**")
 
-location = st.session_state["selected_location"]
+# -----------------------------
+# 날씨 표시
+# -----------------------------
+if st.button("🌤️ 날씨 확인하기", type="primary"):
+    try:
+        with st.spinner("날씨 정보를 가져오는 중이에요..."):
+            place = search_city(selected_region, selected_city)
 
-if st.sidebar.button("🔄 날씨 새로고침", use_container_width=True):
-    get_weather.clear()
-    st.rerun()
+            if place is None:
+                st.error("지역 좌표를 찾을 수 없습니다.")
+                st.stop()
 
+            latitude = place["latitude"]
+            longitude = place["longitude"]
 
-# =====================================
-# 9. 날씨 가져오기
-# =====================================
+            weather = get_weather(latitude, longitude)
 
-try:
-    with st.spinner("날씨 정보를 가져오고 있어요..."):
+        current = weather["current"]
+        daily = weather["daily"]
+        hourly = weather["hourly"]
 
-        data = get_weather(
-            location["latitude"],
-            location["longitude"]
+        st.divider()
+        st.header(f"🌍 {selected_region} {selected_city} 날씨")
+
+        # 현재 날씨
+        temperature = current["temperature_2m"]
+        feels_like = current["apparent_temperature"]
+        humidity = current["relative_humidity_2m"]
+        wind = current["wind_speed_10m"]
+        current_code = current["weather_code"]
+
+        st.subheader("현재 날씨")
+
+        st.title(f"{temperature}°C")
+        st.write(weather_text(current_code))
+        st.caption(f"체감 온도 {feels_like}°C")
+
+        a, b, c = st.columns(3)
+
+        a.metric("습도", f"{humidity}%")
+        b.metric("바람", f"{wind} km/h")
+        c.metric("강수량", f"{current['precipitation']} mm")
+
+        # 오늘 예보
+        st.divider()
+        st.subheader("📅 오늘의 날씨")
+
+        today_high = daily["temperature_2m_max"][0]
+        today_low = daily["temperature_2m_min"][0]
+        today_rain = daily["precipitation_probability_max"][0]
+        today_code = daily["weather_code"][0]
+        today_rain_amount = daily["precipitation_sum"][0]
+
+        x, y, z = st.columns(3)
+
+        x.metric("최고 기온", f"{today_high}°C")
+        y.metric("최저 기온", f"{today_low}°C")
+        z.metric(
+            "최대 강수 확률",
+            f"{today_rain if today_rain is not None else 0}%"
         )
 
-except requests.RequestException as e:
-
-    st.error("날씨 정보를 가져오지 못했어요.")
-    st.caption(str(e))
-    st.stop()
-
-
-current = data["current"]
-hourly = data["hourly"]
-daily = data["daily"]
-
-# 오늘 날짜 인덱스
-today = now.strftime("%Y-%m-%d")
-
-try:
-    day_index = daily["time"].index(today)
-except ValueError:
-    st.error("오늘의 예보 자료를 찾을 수 없어요.")
-    st.stop()
-
-min_temp = daily["temperature_2m_min"][day_index]
-max_temp = daily["temperature_2m_max"][day_index]
-
-daily_code = daily["weather_code"][day_index]
-description, emoji = weather_description(daily_code)
-
-max_pop = daily["precipitation_probability_max"][day_index]
-rain_sum = daily["precipitation_sum"][day_index]
-
-current_temp = current["temperature_2m"]
-feels = current["apparent_temperature"]
-humidity = current["relative_humidity_2m"]
-wind = current["wind_speed_10m"]
-
-# 오늘 남은 시간의 강수확률
-today_hour_indices = [
-    i for i, t in enumerate(hourly["time"])
-    if t.startswith(today)
-    and t[11:16] >= now.strftime("%H:%M")
-]
-
-remaining_pops = [
-    hourly["precipitation_probability"][i]
-    for i in today_hour_indices
-    if hourly["precipitation_probability"][i] is not None
-]
-
-remaining_max_pop = (
-    max(remaining_pops) if remaining_pops else max_pop
-)
-
-# =====================================
-# 10. 날씨 대시보드
-# =====================================
-
-st.markdown(f"## 📍 {location['name']} 오늘의 날씨")
-
-st.markdown(
-    f"""
-    <div class="weather-box">
-        <div style="text-align:center">
-            <div style="font-size:70px">{emoji}</div>
-            <div style="font-size:25px;font-weight:800;color:#367fb0">
-                {description}
-            </div>
-            <div style="font-size:48px;font-weight:900;color:#267db8">
-                {current_temp:.1f}℃
-            </div>
-            <div style="color:#708da4">
-                체감온도 {feels:.1f}℃
-            </div>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-c1, c2, c3, c4 = st.columns(4)
-
-c1.metric("최저기온", f"{min_temp}℃")
-c2.metric("최고기온", f"{max_temp}℃")
-c3.metric("강수확률 최대", f"{max_pop}%")
-c4.metric("습도", f"{humidity}%")
-
-
-# =====================================
-# 11. 오늘의 날씨 알림
-# =====================================
-
-st.markdown("## 🔔 오늘의 날씨 알림")
-
-if remaining_max_pop >= 60:
-
-    st.markdown(
-        '<div class="alert">'
-        '🌧️ 오늘 비가 내릴 가능성이 높아요! '
-        '외출할 때 우산을 꼭 준비하세요.'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-elif remaining_max_pop >= 40:
-
-    st.warning(
-        "🌦️ 비가 올 가능성이 있어요. "
-        "접이식 우산을 챙기는 것을 추천해요."
-    )
-
-elif daily_code in [51, 53, 55, 61, 63, 65, 80, 81, 82]:
-
-    st.warning("☔ 오늘 강수 현상이 예상돼요. 우산을 준비하세요.")
-
-else:
-
-    st.success("☀️ 오늘 남은 시간의 강수 가능성이 비교적 낮아요.")
-
-
-# =====================================
-# 12. 옷차림 추천
-# =====================================
-
-st.markdown("## 👕 오늘의 옷차림 추천")
-
-tips = clothes_recommend(
-    min_temp,
-    max_temp,
-    feels
-)
-
-for tip in tips:
-
-    st.markdown(
-        f'<div class="recommend">{tip}</div>',
-        unsafe_allow_html=True
-    )
-
-
-# =====================================
-# 13. 외출 준비물
-# =====================================
-
-st.markdown("## 🎒 외출 전 준비물")
-
-items = prepare_items(
-    remaining_max_pop,
-    daily_code,
-    max_temp,
-    wind
-)
-
-for item in items:
-    st.checkbox(item, key=f"item_{item}")
-
-
-# =====================================
-# 14. 시간별 예보
-# =====================================
-
-st.markdown("## 🕒 시간별 날씨 예보")
-
-hour_indices = [
-    i for i, t in enumerate(hourly["time"])
-    if t.startswith(today)
-]
-
-hour_indices = [
-    i for i in hour_indices
-    if hourly["time"][i][11:16] >= now.strftime("%H:%M")
-]
-
-forecast_rows = []
-
-for i in hour_indices:
-
-    code = hourly["weather_code"][i]
-    desc, icon = weather_description(code)
-
-    forecast_rows.append({
-        "시간": hourly["time"][i][11:16],
-        "날씨": f"{icon} {desc}",
-        "기온(℃)": hourly["temperature_2m"][i],
-        "체감온도(℃)": hourly["apparent_temperature"][i],
-        "강수확률(%)": hourly["precipitation_probability"][i],
-        "강수량(mm)": hourly["precipitation"][i],
-        "풍속(km/h)": hourly["wind_speed_10m"][i]
-    })
-
-forecast_df = pd.DataFrame(forecast_rows)
-
-st.dataframe(
-    forecast_df,
-    use_container_width=True,
-    hide_index=True
-)
-
-
-# =====================================
-# 15. 기온 그래프
-# =====================================
-
-st.markdown("## 📈 오늘의 기온 변화")
-
-if forecast_rows:
-
-    chart = forecast_df.set_index("시간")[
-        ["기온(℃)", "체감온도(℃)"]
-    ]
-
-    st.line_chart(chart)
-
-
-# =====================================
-# 16. 내일 날씨
-# =====================================
-
-st.markdown("## 🌅 내일 날씨 미리 보기")
-
-tomorrow_index = min(day_index + 1, len(daily["time"]) - 1)
-
-tomorrow_code = daily["weather_code"][tomorrow_index]
-tomorrow_desc, tomorrow_icon = weather_description(tomorrow_code)
-
-t1, t2, t3 = st.columns(3)
-
-t1.metric(
-    "내일 날씨",
-    f"{tomorrow_icon} {tomorrow_desc}"
-)
-
-t2.metric(
-    "내일 최저기온",
-    f"{daily['temperature_2m_min'][tomorrow_index]}℃"
-)
-
-t3.metric(
-    "내일 최고기온",
-    f"{daily['temperature_2m_max'][tomorrow_index]}℃"
-)
-
-st.info(
-    f"내일 강수확률 최대 "
-    f"{daily['precipitation_probability_max'][tomorrow_index]}% "
-    "예보입니다."
-)
-
-
-# =====================================
-# 17. 데이터 출처
-# =====================================
-
+        st.write(weather_text(today_code))
+        st.write(f"예상 강수량: {today_rain_amount} mm")
+
+        # 우산 추천
+        st.divider()
+        st.subheader("☂️ 우산 챙기기")
+
+        rain_probability = today_rain or 0
+
+        if rain_probability >= 60:
+            st.error("비가 올 가능성이 높아요! 우산을 꼭 챙기세요.")
+        elif rain_probability >= 30:
+            st.warning("비가 올 수 있어요. 작은 우산을 챙기면 좋아요.")
+        else:
+            st.success("비가 올 가능성이 낮아요. 그래도 날씨를 확인하세요.")
+
+        # 옷차림 추천
+        st.divider()
+        st.subheader("👕 오늘의 옷차림 추천")
+
+        if temperature < 0:
+            clothes = "두꺼운 패딩, 목도리, 장갑 등 따뜻한 옷을 준비하세요."
+        elif temperature < 7:
+            clothes = "겨울 외투와 따뜻한 옷을 추천해요."
+        elif temperature < 12:
+            clothes = "코트나 두꺼운 재킷을 추천해요."
+        elif temperature < 17:
+            clothes = "가벼운 재킷이나 카디건을 챙기세요."
+        elif temperature < 23:
+            clothes = "긴팔이나 얇은 겉옷이 좋아요."
+        elif temperature < 28:
+            clothes = "반팔이나 얇고 편안한 옷을 추천해요."
+        else:
+            clothes = "시원한 옷을 입고 햇빛을 가릴 수 있는 모자를 챙기세요."
+
+        st.info(clothes)
+
+        # 시간대별 예보
+        st.divider()
+        st.subheader("🕒 시간대별 날씨")
+
+        hourly_df = pd.DataFrame({
+            "시간": hourly["time"],
+            "기온(°C)": hourly["temperature_2m"],
+            "체감온도(°C)": hourly["apparent_temperature"],
+            "강수확률(%)": hourly["precipitation_probability"],
+            "강수량(mm)": hourly["precipitation"]
+        })
+
+        today_date = datetime.now().strftime("%Y-%m-%d")
+        hourly_df = hourly_df[
+            hourly_df["시간"].str.startswith(today_date)
+        ].copy()
+
+        hourly_df["시간"] = pd.to_datetime(
+            hourly_df["시간"]
+        ).dt.strftime("%H:%M")
+
+        st.line_chart(
+            hourly_df.set_index("시간")[["기온(°C)", "체감온도(°C)"]]
+        )
+
+        st.dataframe(
+            hourly_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # 내일 날씨
+        st.divider()
+        st.subheader("🌈 내일의 날씨")
+
+        tomorrow_high = daily["temperature_2m_max"][1]
+        tomorrow_low = daily["temperature_2m_min"][1]
+        tomorrow_rain = daily["precipitation_probability_max"][1]
+        tomorrow_code = daily["weather_code"][1]
+
+        p, q, r = st.columns(3)
+
+        p.metric("최고 기온", f"{tomorrow_high}°C")
+        q.metric("최저 기온", f"{tomorrow_low}°C")
+        r.metric(
+            "강수 확률",
+            f"{tomorrow_rain if tomorrow_rain is not None else 0}%"
+        )
+
+        st.write(weather_text(tomorrow_code))
+
+        st.success("오늘도 안전하고 즐거운 외출 되세요! 😊")
+
+    except requests.exceptions.RequestException:
+        st.error("날씨 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.")
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        st.error(f"날씨 데이터 처리 중 문제가 발생했어요: {error}")
+    except Exception as error:
+        st.error(f"오류가 발생했어요: {error}")
+
+# -----------------------------
+# 하단 안내
+# -----------------------------
 st.divider()
-
-st.markdown("""
-### 💡 이용 안내
-
-- 날씨 정보는 Open-Meteo 예보 데이터를 사용합니다.
-- 지역별 날씨는 해당 좌표의 예보를 기준으로 합니다.
-- 옷차림은 일반적인 참고 추천이며 개인의 체감 차이가 있을 수 있습니다.
-- 강수확률은 실제 비가 반드시 내린다는 의미가 아닙니다.
-- 예보는 변경될 수 있으므로 외출 전 최신 정보를 확인하세요.
-
-**Weather data by [Open-Meteo](https://open-meteo.com/)**
-""")
-
 st.caption(
-    f"마지막 화면 갱신: {datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')}"
+    "날씨 정보 제공: Open-Meteo | "
+    "기상청 공식 예보와 차이가 있을 수 있습니다."
 )
