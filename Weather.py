@@ -2,9 +2,10 @@
 import streamlit as st
 import requests
 import pandas as pd
+import math
 
 # =====================================
-# 기본 설정
+# 1. 기본 설정
 # =====================================
 st.set_page_config(
     page_title="우산 챙겨!",
@@ -13,10 +14,10 @@ st.set_page_config(
 )
 
 st.title("☂️ 우산 챙겨!")
-st.caption("날씨를 확인하고 외출을 준비해요!")
+st.caption("오늘 날씨를 확인하고 외출을 준비해요!")
 
 # =====================================
-# 전국 시·도 및 시·군·구 목록
+# 2. 전국 지역 목록
 # =====================================
 REGIONS = {
     "서울특별시": [
@@ -108,84 +109,144 @@ REGIONS = {
 }
 
 # =====================================
-# 날씨 코드
+# 3. 광역 지역 중심 좌표
+#    검색 결과가 여러 개일 때 지역 구분에 사용
 # =====================================
-WEATHER_CODES = {
-    0: "맑음 ☀️",
-    1: "대체로 맑음 🌤️",
-    2: "부분적으로 흐림 ⛅",
-    3: "흐림 ☁️",
-    45: "안개 🌫️",
-    48: "안개 🌫️",
-    51: "약한 이슬비 🌦️",
-    53: "이슬비 🌦️",
-    55: "강한 이슬비 🌧️",
-    61: "약한 비 🌧️",
-    63: "비 🌧️",
-    65: "강한 비 ☔",
-    71: "약한 눈 🌨️",
-    73: "눈 ❄️",
-    75: "강한 눈 ❄️",
-    80: "소나기 🌦️",
-    81: "소나기 🌧️",
-    82: "강한 소나기 ⛈️",
-    95: "뇌우 ⛈️",
-    96: "우박을 동반한 뇌우 ⛈️",
-    99: "강한 뇌우 ⛈️"
+REGION_CENTERS = {
+    "서울특별시": (37.5665, 126.9780),
+    "부산광역시": (35.1796, 129.0756),
+    "대구광역시": (35.8714, 128.6014),
+    "인천광역시": (37.4563, 126.7052),
+    "광주광역시": (35.1595, 126.8526),
+    "대전광역시": (36.3504, 127.3845),
+    "울산광역시": (35.5384, 129.3114),
+    "세종특별자치시": (36.4800, 127.2890),
+    "경기도": (37.4138, 127.5183),
+    "강원특별자치도": (37.8228, 128.1555),
+    "충청북도": (36.8000, 127.7000),
+    "충청남도": (36.5184, 126.8000),
+    "전북특별자치도": (35.7175, 127.1530),
+    "전라남도": (34.8679, 126.9910),
+    "경상북도": (36.4919, 128.8889),
+    "경상남도": (35.4606, 128.2132),
+    "제주특별자치도": (33.4996, 126.5312)
 }
 
+# 주요 도시의 영문 검색 이름
+CITY_EN = {
+    "용인시": "Yongin",
+    "수원시": "Suwon",
+    "성남시": "Seongnam",
+    "고양시": "Goyang",
+    "화성시": "Hwaseong",
+    "청주시": "Cheongju",
+    "천안시": "Cheonan",
+    "전주시": "Jeonju",
+    "포항시": "Pohang",
+    "창원시": "Changwon",
+    "춘천시": "Chuncheon",
+    "강릉시": "Gangneung",
+    "제주시": "Jeju",
+    "서귀포시": "Seogwipo"
+}
 
-def weather_text(code):
-    if code is None:
-        return "날씨 정보 없음"
+# =====================================
+# 4. 거리 계산
+# =====================================
+def distance_km(lat1, lon1, lat2, lon2):
+    radius = 6371
 
-    return WEATHER_CODES.get(int(code), "날씨 정보 확인 중")
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
+
+    return radius * 2 * math.atan2(
+        math.sqrt(a),
+        math.sqrt(1 - a)
+    )
 
 
 # =====================================
-# 지역 검색
+# 5. 지역 좌표 검색
 # =====================================
 @st.cache_data(ttl=86400)
 def search_city(region, city):
 
     url = "https://geocoding-api.open-meteo.com/v1/search"
 
-    # 먼저 시·군·구와 광역 지역을 함께 검색
-    params = {
-        "name": f"{city}, {region}",
-        "count": 100,
-        "language": "ko",
-        "format": "json",
-        "countryCode": "KR"
-    }
+    # 검색 이름 후보
+    search_names = [city]
 
-    response = requests.get(
-        url,
-        params=params,
-        timeout=15
-    )
-    response.raise_for_status()
+    if city in CITY_EN:
+        search_names.append(CITY_EN[city])
 
-    results = response.json().get("results", [])
+    # 시, 군, 구 접미사를 제거한 이름도 검색
+    for suffix in ["특별자치시", "특별시", "광역시", "시", "군", "구"]:
+        if city.endswith(suffix):
+            short_name = city[:-len(suffix)]
+            if len(short_name) >= 2:
+                search_names.append(short_name)
+            break
 
-    if not results:
-        # 검색 결과가 없으면 시·군·구 이름으로 재검색
-        params["name"] = city
+    all_results = []
 
-        response = requests.get(
-            url,
-            params=params,
-            timeout=15
-        )
-        response.raise_for_status()
+    for name in search_names:
 
-        results = response.json().get("results", [])
+        params = {
+            "name": name,
+            "count": 100,
+            "language": "ko",
+            "format": "json",
+            "countryCode": "KR"
+        }
 
-    if not results:
+        try:
+            response = requests.get(
+                url,
+                params=params,
+                timeout=15
+            )
+
+            response.raise_for_status()
+
+            results = response.json().get("results", [])
+
+            for item in results:
+                if item.get("country_code") == "KR":
+                    all_results.append(item)
+
+        except requests.exceptions.RequestException:
+            continue
+
+        if all_results:
+            break
+
+    if not all_results:
         return None
 
-    # 지역별 검색 결과를 우선 확인
-    region_aliases = {
+    # 중복 결과 제거
+    unique_results = {}
+
+    for item in all_results:
+        key = (
+            round(item["latitude"], 4),
+            round(item["longitude"], 4)
+        )
+        unique_results[key] = item
+
+    results = list(unique_results.values())
+
+    # 광역 지역 중심 좌표
+    center_lat, center_lon = REGION_CENTERS[region]
+
+    # 지역 행정구역 이름 비교용 별칭
+    REGION_NAMES = {
         "서울특별시": ["서울", "Seoul"],
         "부산광역시": ["부산", "Busan"],
         "대구광역시": ["대구", "Daegu"],
@@ -205,30 +266,40 @@ def search_city(region, city):
         "제주특별자치도": ["제주", "Jeju"]
     }
 
-    aliases = region_aliases.get(region, [region])
+    aliases = REGION_NAMES.get(region, [region])
+
+    # 행정구역이 일치하는 검색 결과 우선
+    matching = []
 
     for item in results:
+
         admin_text = " ".join([
             item.get("admin1", ""),
             item.get("admin2", ""),
             item.get("admin3", ""),
-            item.get("name", "")
-        ])
+            item.get("admin4", "")
+        ]).lower()
 
-        if any(alias.lower() in admin_text.lower() for alias in aliases):
-            return item
+        if any(alias.lower() in admin_text for alias in aliases):
+            matching.append(item)
 
-    # 검색 결과가 하나뿐이면 그 결과 사용
-    if len(results) == 1:
-        return results[0]
+    candidates = matching if matching else results
 
-    # 여러 지역이 검색되었는데 행정구역을 확인할 수 없다면
-    # 엉뚱한 지역의 날씨를 보여주지 않도록 중단
-    return None
+    # 해당 광역 지역 중심에서 가장 가까운 결과 선택
+    candidates.sort(
+        key=lambda item: distance_km(
+            center_lat,
+            center_lon,
+            item["latitude"],
+            item["longitude"]
+        )
+    )
+
+    return candidates[0]
 
 
 # =====================================
-# 날씨 조회
+# 6. 날씨 정보 가져오기
 # =====================================
 @st.cache_data(ttl=1800)
 def get_weather(latitude, longitude):
@@ -276,11 +347,48 @@ def get_weather(latitude, longitude):
 
     response.raise_for_status()
 
-    return response.json()
+    data = response.json()
+
+    if "current" not in data or "daily" not in data:
+        raise ValueError("날씨 데이터가 올바르게 전달되지 않았어요.")
+
+    return data
 
 
 # =====================================
-# 지역 선택 화면
+# 7. 날씨 코드 설명
+# =====================================
+WEATHER_CODES = {
+    0: "맑음 ☀️",
+    1: "대체로 맑음 🌤️",
+    2: "부분적으로 흐림 ⛅",
+    3: "흐림 ☁️",
+    45: "안개 🌫️",
+    48: "안개 🌫️",
+    51: "약한 이슬비 🌦️",
+    53: "이슬비 🌦️",
+    55: "강한 이슬비 🌧️",
+    61: "약한 비 🌧️",
+    63: "비 🌧️",
+    65: "강한 비 ☔",
+    71: "약한 눈 🌨️",
+    73: "눈 ❄️",
+    75: "강한 눈 ❄️",
+    80: "소나기 🌦️",
+    81: "소나기 🌧️",
+    82: "강한 소나기 ⛈️",
+    95: "뇌우 ⛈️",
+    96: "우박을 동반한 뇌우 ⛈️",
+    99: "강한 뇌우 ⛈️"
+}
+
+
+def weather_text(code):
+    return WEATHER_CODES.get(int(code), "날씨 정보 확인 중")
+
+
+# =====================================
+# 8. 지역 선택
 # =====================================
 st.subheader("📍 지역 선택")
 
@@ -301,12 +409,13 @@ with col2:
 st.info(f"선택한 지역: {selected_region} {selected_city}")
 
 # =====================================
-# 날씨 확인 버튼
+# 9. 날씨 확인
 # =====================================
 if st.button("🌤️ 날씨 확인하기", type="primary"):
 
     try:
-        with st.spinner("날씨 정보를 가져오고 있어요..."):
+
+        with st.spinner("선택한 지역의 날씨를 확인하고 있어요..."):
 
             place = search_city(
                 selected_region,
@@ -315,18 +424,15 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
 
             if place is None:
                 st.error(
-                    "선택한 지역의 좌표를 정확하게 찾지 못했어요. "
-                    "다른 지역을 선택하거나 잠시 후 다시 시도해 주세요."
+                    "지역 좌표를 찾지 못했어요. "
+                    "잠시 후 다시 시도해 주세요."
                 )
                 st.stop()
 
             latitude = place["latitude"]
             longitude = place["longitude"]
 
-            weather = get_weather(
-                latitude,
-                longitude
-            )
+            weather = get_weather(latitude, longitude)
 
         current = weather["current"]
         daily = weather["daily"]
@@ -342,19 +448,18 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
         )
 
         st.caption(
-            f"날씨 좌표 검색 결과: {place.get('name', selected_city)}"
+            f"날씨 검색 지점: {place.get('name', selected_city)}"
         )
 
         temperature = current["temperature_2m"]
         feels_like = current["apparent_temperature"]
         humidity = current["relative_humidity_2m"]
         wind = current["wind_speed_10m"]
-        current_code = current["weather_code"]
 
         st.subheader("🌡️ 현재 날씨")
 
         st.title(f"{temperature}°C")
-        st.write(weather_text(current_code))
+        st.write(weather_text(current["weather_code"]))
         st.write(f"체감 온도: {feels_like}°C")
 
         a, b, c = st.columns(3)
@@ -399,7 +504,7 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
         if today_rain >= 60:
             st.error(
                 "비가 올 가능성이 높아요! "
-                "외출할 때 우산을 꼭 챙기세요."
+                "우산을 꼭 챙기세요."
             )
 
         elif today_rain >= 30:
@@ -411,7 +516,7 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
         else:
             st.success(
                 "비가 올 가능성이 낮아요. "
-                "그래도 시간대별 날씨를 확인하세요."
+                "시간대별 예보도 확인해 보세요."
             )
 
         # =====================================
@@ -420,47 +525,31 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
         st.divider()
         st.subheader("👕 오늘의 옷차림 추천")
 
-        if temperature < 0:
-            clothes = (
-                "두꺼운 외투와 목도리 등 "
-                "따뜻한 옷을 준비하세요."
-            )
+        if feels_like < 0:
+            clothes = "두꺼운 외투와 따뜻한 옷을 준비하세요."
 
-        elif temperature < 7:
-            clothes = (
-                "겨울 외투와 따뜻한 옷을 추천해요."
-            )
+        elif feels_like < 7:
+            clothes = "겨울 외투와 따뜻한 옷을 추천해요."
 
-        elif temperature < 12:
-            clothes = (
-                "코트나 두꺼운 재킷을 추천해요."
-            )
+        elif feels_like < 12:
+            clothes = "코트나 두꺼운 재킷을 추천해요."
 
-        elif temperature < 17:
-            clothes = (
-                "가벼운 재킷이나 카디건을 챙기세요."
-            )
+        elif feels_like < 17:
+            clothes = "가벼운 재킷이나 카디건을 챙기세요."
 
-        elif temperature < 23:
-            clothes = (
-                "긴팔이나 얇은 겉옷이 좋아요."
-            )
+        elif feels_like < 23:
+            clothes = "긴팔이나 얇은 겉옷이 좋아요."
 
-        elif temperature < 28:
-            clothes = (
-                "반팔이나 얇고 편안한 옷을 추천해요."
-            )
+        elif feels_like < 28:
+            clothes = "반팔이나 얇고 편안한 옷을 추천해요."
 
         else:
-            clothes = (
-                "시원한 옷을 입고 햇빛을 가릴 "
-                "모자를 챙기세요."
-            )
+            clothes = "시원한 옷과 햇빛을 가릴 모자를 챙기세요."
 
         st.info(clothes)
 
         # =====================================
-        # 시간대별 날씨
+        # 시간대별 예보
         # =====================================
         st.divider()
         st.subheader("🕒 시간대별 날씨")
@@ -473,7 +562,6 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
             "강수량(mm)": hourly["precipitation"]
         })
 
-        # API가 제공한 현지 날짜를 기준으로 오늘 시간만 표시
         today_date = current["time"][:10]
 
         hourly_df = hourly_df[
@@ -499,7 +587,7 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
             )
 
         else:
-            st.info("시간대별 예보가 아직 없어요.")
+            st.info("시간대별 예보가 없습니다.")
 
         # =====================================
         # 내일 날씨
@@ -535,23 +623,18 @@ if st.button("🌤️ 날씨 확인하기", type="primary"):
             "날씨 서버 응답이 늦어요. 잠시 후 다시 시도해 주세요."
         )
 
-    except requests.exceptions.RequestException:
-        st.error(
-            "날씨 서버에 연결하지 못했어요. "
-            "인터넷 연결을 확인해 주세요."
-        )
+    except requests.exceptions.RequestException as error:
+        st.error(f"서버 연결 오류: {error}")
 
     except (KeyError, IndexError, TypeError, ValueError) as error:
-        st.error(
-            f"날씨 데이터를 처리하는 중 문제가 발생했어요: {error}"
-        )
+        st.error(f"날씨 데이터 처리 오류: {error}")
 
     except Exception as error:
-        st.error(f"예상하지 못한 오류가 발생했어요: {error}")
+        st.error(f"예상하지 못한 오류: {error}")
 
 
 # =====================================
-# 하단 안내
+# 10. 하단 안내
 # =====================================
 st.divider()
 
@@ -561,6 +644,6 @@ st.caption(
 )
 
 st.caption(
-    "지역 검색 데이터: GeoNames | "
-    "Open-Meteo 서비스 이용 조건을 확인해 주세요."
+    "지역 검색 자료: GeoNames | "
+    "Open-Meteo 이용 조건을 확인해 주세요."
 )
