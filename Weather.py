@@ -5,9 +5,9 @@ import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# =====================================
+# ==========================================
 # 1. 기본 설정
-# =====================================
+# ==========================================
 
 st.set_page_config(
     page_title="날씨 알리미",
@@ -18,7 +18,7 @@ st.set_page_config(
 st.markdown("""
 <style>
 .main-title {
-    font-size: 36px;
+    font-size: 38px;
     font-weight: 800;
     color: #2878C8;
 }
@@ -35,9 +35,9 @@ div[data-testid="stMetric"] {
 """, unsafe_allow_html=True)
 
 
-# =====================================
-# 2. 지역 목록 및 좌표
-# =====================================
+# ==========================================
+# 2. 지역 목록
+# ==========================================
 
 REGIONS = {
     "서울특별시": {
@@ -140,9 +140,9 @@ REGIONS = {
 }
 
 
-# =====================================
+# ==========================================
 # 3. 날씨 코드
-# =====================================
+# ==========================================
 
 WEATHER_CODES = {
     0: "맑음",
@@ -171,8 +171,6 @@ WEATHER_CODES = {
     99: "강한 뇌우"
 }
 
-SNOW_CODES = [71, 73, 75, 77, 85, 86]
-
 WEATHER_ICONS = {
     "맑음": "☀️",
     "대체로 맑음": "🌤️",
@@ -199,10 +197,12 @@ WEATHER_ICONS = {
     "강한 뇌우": "⛈️"
 }
 
+SNOW_CODES = [71, 73, 75, 77, 85, 86]
 
-# =====================================
-# 4. API 데이터 가져오기
-# =====================================
+
+# ==========================================
+# 4. 날씨 API
+# ==========================================
 
 @st.cache_data(ttl=600)
 def get_weather(lat, lon):
@@ -214,12 +214,12 @@ def get_weather(lat, lon):
         "current": (
             "temperature_2m,relative_humidity_2m,"
             "apparent_temperature,precipitation,"
-            "snowfall,weather_code,wind_speed_10m"
+            "weather_code,wind_speed_10m"
         ),
         "hourly": (
             "temperature_2m,apparent_temperature,"
             "precipitation_probability,precipitation,"
-            "snowfall,snowfall_probability,weather_code"
+            "snowfall,weather_code"
         ),
         "daily": (
             "weather_code,temperature_2m_max,"
@@ -234,6 +234,10 @@ def get_weather(lat, lon):
     response.raise_for_status()
     return response.json()
 
+
+# ==========================================
+# 5. 대기질 API
+# ==========================================
 
 @st.cache_data(ttl=600)
 def get_air_quality(lat, lon):
@@ -251,9 +255,9 @@ def get_air_quality(lat, lon):
     return response.json()
 
 
-# =====================================
-# 5. 보조 함수
-# =====================================
+# ==========================================
+# 6. 보조 함수
+# ==========================================
 
 def number(value, default=0):
     try:
@@ -275,45 +279,47 @@ def air_grade(value, kind):
             return "보통 🙂"
         elif value <= 150:
             return "나쁨 😷"
-        else:
-            return "매우 나쁨 🚨"
+        return "매우 나쁨 🚨"
 
-    else:
-        if value <= 15:
-            return "좋음 😊"
-        elif value <= 35:
-            return "보통 🙂"
-        elif value <= 75:
-            return "나쁨 😷"
-        else:
-            return "매우 나쁨 🚨"
+    if value <= 15:
+        return "좋음 😊"
+    elif value <= 35:
+        return "보통 🙂"
+    elif value <= 75:
+        return "나쁨 😷"
+    return "매우 나쁨 🚨"
 
 
-def calculate_score(temp, rain, snow, wind, pm10, pm25):
+# ==========================================
+# 7. 외출 점수 계산
+# ==========================================
+
+def calculate_score(temp, feels, rain, snow, wind, pm10, pm25):
     score = 100
     reasons = []
 
     if rain >= 80:
         score -= 25
-        reasons.append("비가 올 가능성이 높아요.")
+        reasons.append("비가 올 가능성이 매우 높아요.")
     elif rain >= 50:
         score -= 15
-        reasons.append("비가 올 수 있어요.")
+        reasons.append("비가 올 가능성이 있어요.")
 
     if snow > 0:
         score -= 20
-        reasons.append("눈 예보가 있어요.")
+        reasons.append("눈이 예상돼요.")
 
-    if temp >= 33:
+    if temp >= 33 or feels >= 35:
         score -= 20
-        reasons.append("매우 더운 날씨예요.")
-    elif temp >= 30:
+        reasons.append("더위에 주의해야 해요.")
+    elif temp >= 30 or feels >= 32:
         score -= 10
-        reasons.append("더위에 주의하세요.")
-    elif temp <= -10:
+        reasons.append("다소 더운 날씨예요.")
+
+    if temp <= -10 or feels <= -12:
         score -= 20
         reasons.append("매우 추운 날씨예요.")
-    elif temp <= 0:
+    elif temp <= 0 or feels <= -2:
         score -= 10
         reasons.append("추운 날씨예요.")
 
@@ -324,19 +330,21 @@ def calculate_score(temp, rain, snow, wind, pm10, pm25):
         score -= 8
         reasons.append("바람이 다소 강해요.")
 
-    if pm10 is not None and pm10 > 150:
-        score -= 15
-        reasons.append("미세먼지가 매우 나빠요.")
-    elif pm10 is not None and pm10 > 80:
-        score -= 8
-        reasons.append("미세먼지가 나빠요.")
+    if pm10 is not None:
+        if pm10 > 150:
+            score -= 15
+            reasons.append("미세먼지가 매우 나빠요.")
+        elif pm10 > 80:
+            score -= 8
+            reasons.append("미세먼지가 나빠요.")
 
-    if pm25 is not None and pm25 > 75:
-        score -= 15
-        reasons.append("초미세먼지가 매우 나빠요.")
-    elif pm25 is not None and pm25 > 35:
-        score -= 8
-        reasons.append("초미세먼지가 나빠요.")
+    if pm25 is not None:
+        if pm25 > 75:
+            score -= 15
+            reasons.append("초미세먼지가 매우 나빠요.")
+        elif pm25 > 35:
+            score -= 8
+            reasons.append("초미세먼지가 나빠요.")
 
     score = max(0, min(100, score))
 
@@ -355,9 +363,127 @@ def calculate_score(temp, rain, snow, wind, pm10, pm25):
     return score, message, reasons
 
 
-# =====================================
-# 6. 앱 제목
-# =====================================
+# ==========================================
+# 8. 외출 가이드 및 준비물 추천
+# ==========================================
+
+def get_outdoor_advice(
+    temp, feels, rain, snow, wind, pm10, pm25
+):
+    advice = []
+    preparations = []
+
+    # 미세먼지
+    if (
+        (pm10 is not None and pm10 > 150)
+        or (pm25 is not None and pm25 > 75)
+    ):
+        advice.append(
+            "😷 미세먼지가 매우 나빠요. "
+            "가능하면 야외 활동을 줄이고 실내에 머무르는 것을 추천해요."
+        )
+        preparations.append("보건용 마스크")
+
+    elif (
+        (pm10 is not None and pm10 > 80)
+        or (pm25 is not None and pm25 > 35)
+    ):
+        advice.append(
+            "🌫️ 공기가 좋지 않아요. "
+            "장시간 야외 활동은 피하고 외출할 때 마스크를 챙겨 보세요."
+        )
+        preparations.append("보건용 마스크")
+
+    # 비
+    if rain >= 50:
+        advice.append(
+            "☔ 비가 올 가능성이 있어요. "
+            "우산을 챙기고 외출 시간을 확인하세요."
+        )
+        preparations.append("우산")
+
+    # 눈
+    if snow > 0:
+        advice.append(
+            "❄️ 눈이 예상돼요. "
+            "길이 미끄러울 수 있으니 조심해서 이동하세요."
+        )
+        preparations.append("미끄럼에 주의할 신발")
+
+    # 더위
+    if temp >= 33 or feels >= 35:
+        advice.append(
+            "🥵 오늘은 너무 더워요! "
+            "한낮 야외 활동은 피하고 시원한 실내에서 쉬는 것이 좋아요."
+        )
+        preparations.extend(["물", "모자"])
+
+    elif temp >= 30 or feels >= 32:
+        advice.append(
+            "☀️ 더운 날씨예요. "
+            "산책은 비교적 시원한 시간대에 하는 것을 추천해요."
+        )
+        preparations.extend(["물", "모자"])
+
+    # 추위
+    if temp <= -10 or feels <= -12:
+        advice.append(
+            "🥶 매우 추워요. "
+            "오래 야외에 있기보다는 따뜻한 실내 활동을 추천해요."
+        )
+        preparations.append("따뜻한 겉옷")
+
+    elif temp <= 0 or feels <= -2:
+        advice.append(
+            "🧣 추운 날씨예요. 따뜻하게 입고 외출하세요."
+        )
+        preparations.append("따뜻한 겉옷")
+
+    # 강풍
+    if wind >= 40:
+        advice.append(
+            "💨 바람이 매우 강해요. "
+            "야외 활동을 줄이고 주변 시설물에 주의하세요."
+        )
+
+    elif wind >= 25:
+        advice.append(
+            "🍃 바람이 강한 편이에요. 바람막이를 챙기면 좋아요."
+        )
+        preparations.append("바람막이")
+
+    # 외출하기 좋은 날인지 판단
+    bad_weather = (
+        rain >= 50
+        or snow > 0
+        or temp >= 33
+        or feels >= 35
+        or temp <= -10
+        or feels <= -12
+        or wind >= 40
+        or (pm10 is not None and pm10 > 80)
+        or (pm25 is not None and pm25 > 35)
+    )
+
+    if not bad_weather:
+        advice.append(
+            "🌳 산책하기 좋은 날씨네요! "
+            "가벼운 산책이나 야외 활동을 즐겨 보세요."
+        )
+
+    if not advice:
+        advice.append(
+            "🌤️ 외출 전 날씨를 확인하고 즐거운 하루 보내세요!"
+        )
+
+    preparations = list(dict.fromkeys(preparations))
+
+    return advice, preparations, bad_weather
+
+
+# ==========================================
+# 9. 앱 제목
+# ==========================================
 
 st.markdown(
     '<div class="main-title">🌤️ 날씨 알리미</div>',
@@ -374,9 +500,9 @@ st.markdown(
 st.divider()
 
 
-# =====================================
-# 7. 지역 선택
-# =====================================
+# ==========================================
+# 10. 지역 선택
+# ==========================================
 
 st.subheader("📍 지역 선택")
 
@@ -384,13 +510,13 @@ col1, col2 = st.columns(2)
 
 with col1:
     selected_region = st.selectbox(
-        "시·도",
+        "시·도 선택",
         list(REGIONS.keys())
     )
 
 with col2:
     selected_city = st.selectbox(
-        "시·군·구",
+        "시·군·구 선택",
         list(REGIONS[selected_region].keys())
     )
 
@@ -403,9 +529,9 @@ if st.button("🔄 날씨 새로고침"):
     get_air_quality.clear()
 
 
-# =====================================
-# 8. 날씨 데이터 불러오기
-# =====================================
+# ==========================================
+# 11. 날씨 데이터 불러오기
+# ==========================================
 
 try:
     data = get_weather(latitude, longitude)
@@ -419,7 +545,7 @@ hourly = data["hourly"]
 daily = data["daily"]
 
 temp = number(current.get("temperature_2m"))
-feels_like = number(current.get("apparent_temperature"))
+feels = number(current.get("apparent_temperature"))
 humidity = number(current.get("relative_humidity_2m"))
 wind = number(current.get("wind_speed_10m"))
 rain_now = number(current.get("precipitation"))
@@ -429,9 +555,9 @@ weather_text = WEATHER_CODES.get(weather_code, "날씨 정보")
 weather_icon = WEATHER_ICONS.get(weather_text, "🌤️")
 
 
-# =====================================
-# 9. 대기질 데이터
-# =====================================
+# ==========================================
+# 12. 대기질 데이터
+# ==========================================
 
 pm10 = None
 pm25 = None
@@ -443,20 +569,28 @@ try:
     pm10 = air.get("pm10")
     pm25 = air.get("pm2_5")
 
-except (requests.exceptions.RequestException, KeyError, TypeError):
-    st.warning("대기질 정보를 불러오지 못했어요. 날씨 정보는 계속 확인할 수 있어요.")
+except (
+    requests.exceptions.RequestException,
+    KeyError,
+    TypeError
+):
+    st.warning(
+        "대기질 정보를 불러오지 못했어요. "
+        "날씨 정보는 계속 확인할 수 있어요."
+    )
 
 
-# =====================================
-# 10. 오늘 남은 시간 데이터
-# =====================================
+# ==========================================
+# 13. 오늘 남은 시간 계산
+# ==========================================
 
 now = datetime.now(ZoneInfo("Asia/Seoul"))
 today = now.strftime("%Y-%m-%d")
 
 today_hours = [
     i for i, t in enumerate(hourly["time"])
-    if t.startswith(today) and int(t[11:13]) >= now.hour
+    if t.startswith(today)
+    and int(t[11:13]) >= now.hour
 ]
 
 rain_values = [
@@ -471,26 +605,18 @@ snow_values = [
     if hourly["snowfall"][i] is not None
 ]
 
-snow_prob_values = [
-    number(hourly["snowfall_probability"][i])
-    for i in today_hours
-    if hourly["snowfall_probability"][i] is not None
-]
-
 rain_probability = max(rain_values) if rain_values else 0
-snow_amount = max(snow_values) if snow_values else 0
-snow_probability = max(snow_prob_values) if snow_prob_values else 0
+snow_amount = sum(snow_values) if snow_values else 0
 
-# 시간별 눈 날씨 코드 확인
 snow_expected = any(
     int(number(hourly["weather_code"][i])) in SNOW_CODES
     for i in today_hours
 )
 
 
-# =====================================
-# 11. 현재 날씨
-# =====================================
+# ==========================================
+# 14. 현재 날씨
+# ==========================================
 
 st.divider()
 st.subheader(f"📅 {selected_city} 현재 날씨")
@@ -503,7 +629,7 @@ with a:
     st.metric("현재 기온", f"{temp:.1f}°C")
 
 with b:
-    st.metric("체감 온도", f"{feels_like:.1f}°C")
+    st.metric("체감 온도", f"{feels:.1f}°C")
 
 with c:
     st.metric("습도", f"{humidity:.0f}%")
@@ -513,9 +639,9 @@ st.caption(
 )
 
 
-# =====================================
-# 12. 미세먼지 및 초미세먼지
-# =====================================
+# ==========================================
+# 15. 미세먼지와 초미세먼지
+# ==========================================
 
 st.divider()
 st.subheader("🌫️ 미세먼지 정보")
@@ -541,9 +667,9 @@ with air2:
         st.write("대기질 정보 없음")
 
 
-# =====================================
-# 13. 오늘의 날씨 알림
-# =====================================
+# ==========================================
+# 16. 오늘의 날씨 알림
+# ==========================================
 
 st.divider()
 st.subheader("🚨 오늘의 날씨 알림")
@@ -552,67 +678,114 @@ alerts = []
 
 if rain_probability >= 50:
     alerts.append(
-        ("☔ 비 알림", f"오늘 비가 올 가능성이 있어요. 강수확률 최대 {rain_probability:.0f}%예요.")
+        f"☔ 비가 올 가능성이 있어요. "
+        f"강수확률 최대 {rain_probability:.0f}%예요."
     )
 
-if snow_expected or snow_amount > 0 or snow_probability >= 50:
+if snow_expected or snow_amount > 0:
     alerts.append(
-        ("❄️ 눈 알림", "눈이 내릴 가능성이 있어요. 미끄러운 길에 주의하세요.")
+        "❄️ 눈이 예상돼요. 미끄러운 길에 주의하세요."
     )
 
-if temp >= 33 or feels_like >= 35:
+if temp >= 33 or feels >= 35:
     alerts.append(
-        ("🥵 폭염 주의", "오늘은 너무 더워요! 물을 챙기고 더운 시간에는 쉬어 주세요.")
+        "🥵 오늘은 너무 더워요! 물을 챙기고 더운 시간에는 쉬어 주세요."
     )
-elif temp >= 30 or feels_like >= 32:
+elif temp >= 30 or feels >= 32:
     alerts.append(
-        ("☀️ 더위 주의", "오늘은 더운 날씨예요. 시원한 옷차림을 추천해요.")
+        "☀️ 오늘은 더운 날씨예요. 시원한 옷차림을 추천해요."
     )
 
-if temp <= -10 or feels_like <= -12:
+if temp <= -10 or feels <= -12:
     alerts.append(
-        ("🥶 한파 주의", "오늘은 매우 추워요! 따뜻하게 입으세요.")
+        "🥶 오늘은 매우 추워요! 따뜻하게 입으세요."
     )
-elif temp <= 0 or feels_like <= -2:
+elif temp <= 0 or feels <= -2:
     alerts.append(
-        ("🧣 추위 주의", "기온이 낮아요. 따뜻한 겉옷을 준비하세요.")
+        "🧣 기온이 낮아요. 따뜻한 겉옷을 준비하세요."
     )
 
 if wind >= 40:
     alerts.append(
-        ("💨 강풍 주의", "바람이 매우 강하게 불 수 있어요.")
+        "💨 바람이 매우 강해요. 야외 활동에 주의하세요."
     )
 elif wind >= 25:
     alerts.append(
-        ("🍃 바람 주의", "바람이 다소 강해요.")
+        "🍃 바람이 다소 강해요."
     )
 
 if pm10 is not None and pm10 > 80:
     alerts.append(
-        ("😷 미세먼지 주의", "미세먼지 농도가 나빠요. 대기질을 확인하고 외출하세요.")
+        "😷 미세먼지 농도가 나빠요. 대기질을 확인하세요."
     )
 
 if pm25 is not None and pm25 > 35:
     alerts.append(
-        ("😷 초미세먼지 주의", "초미세먼지 농도가 나빠요. 야외 활동에 주의하세요.")
+        "😷 초미세먼지 농도가 나빠요. 야외 활동에 주의하세요."
     )
 
 if alerts:
-    for title, message in alerts:
-        st.warning(f"**{title}**\n\n{message}")
+    for alert in alerts:
+        st.warning(alert)
 else:
     st.success("현재 확인된 특별한 날씨 주의 알림이 없어요!")
 
 
-# =====================================
-# 14. 외출 점수
-# =====================================
+# ==========================================
+# 17. 오늘의 외출 가이드
+# ==========================================
+
+st.divider()
+st.subheader("🏡 오늘의 외출 가이드")
+
+advice_list, preparation_list, bad_weather = get_outdoor_advice(
+    temp,
+    feels,
+    rain_probability,
+    snow_amount,
+    wind,
+    pm10,
+    pm25
+)
+
+for advice in advice_list:
+    st.info(advice)
+
+st.markdown("### 🎒 오늘 챙기면 좋은 것")
+
+if preparation_list:
+    for index, item in enumerate(preparation_list):
+        st.checkbox(
+            item,
+            key=f"guide_prepare_{index}"
+        )
+else:
+    st.success("특별히 추가로 챙길 준비물이 없어요!")
+
+st.markdown("### 💡 오늘의 추천 활동")
+
+if bad_weather:
+    st.warning(
+        "🏠 오늘은 날씨에 주의가 필요해요. "
+        "실내 활동을 고려하고 외출한다면 충분히 준비하세요."
+    )
+else:
+    st.success(
+        "🌳 산책하기 좋은 날씨네요! "
+        "가볍게 산책하거나 야외 활동을 즐겨 보세요."
+    )
+
+
+# ==========================================
+# 18. 외출 점수
+# ==========================================
 
 st.divider()
 st.subheader("⭐ 오늘의 외출 점수")
 
 score, score_message, reasons = calculate_score(
     temp,
+    feels,
     rain_probability,
     snow_amount,
     wind,
@@ -642,13 +815,13 @@ for reason in reasons:
     st.write(f"• {reason}")
 
 st.caption(
-    "※ 외출 점수는 날씨 요소를 이용한 앱 자체 참고 점수이며 공식 기상 등급이 아닙니다."
+    "※ 외출 점수는 앱 자체 참고 점수이며 공식 기상 등급이 아닙니다."
 )
 
 
-# =====================================
-# 15. 시간대별 예보
-# =====================================
+# ==========================================
+# 19. 시간대별 날씨
+# ==========================================
 
 st.divider()
 st.subheader("🕒 시간대별 날씨")
@@ -661,6 +834,7 @@ if today_hours:
             "시간": hourly["time"][i][11:16],
             "기온(°C)": hourly["temperature_2m"][i],
             "강수확률(%)": hourly["precipitation_probability"][i],
+            "강수량(mm)": hourly["precipitation"][i],
             "눈(㎝)": hourly["snowfall"][i],
             "날씨": WEATHER_CODES.get(
                 int(number(hourly["weather_code"][i])),
@@ -684,50 +858,9 @@ else:
     st.info("오늘 남은 시간의 예보가 없어요.")
 
 
-# =====================================
-# 16. 외출 준비물
-# =====================================
-
-st.divider()
-st.subheader("🎒 오늘의 외출 준비물")
-
-items = []
-
-if rain_probability >= 40:
-    items.append("☂️ 우산")
-
-if snow_expected or snow_amount > 0:
-    items.append("🥾 미끄럼에 주의할 신발")
-
-if temp <= 10:
-    items.append("🧥 따뜻한 겉옷")
-elif temp <= 18:
-    items.append("🧥 가벼운 겉옷")
-
-if temp >= 28 or feels_like >= 30:
-    items.append("🧢 모자")
-    items.append("💧 물")
-
-if wind >= 25:
-    items.append("🧣 바람을 막아줄 옷")
-
-if pm10 is not None and pm10 > 80:
-    items.append("😷 마스크")
-
-if pm25 is not None and pm25 > 35:
-    if "😷 마스크" not in items:
-        items.append("😷 마스크")
-
-if not items:
-    items.append("🎒 평소 외출 준비물")
-
-for index, item in enumerate(items):
-    st.checkbox(item, key=f"prepare_{index}_{item}")
-
-
-# =====================================
-# 17. 오늘과 내일 비교
-# =====================================
+# ==========================================
+# 20. 오늘과 내일 날씨 비교
+# ==========================================
 
 st.divider()
 st.subheader("🗓️ 오늘과 내일 날씨 비교")
@@ -753,7 +886,8 @@ with day1:
     )
 
     st.write(
-        f"강수확률 최대 {daily['precipitation_probability_max'][0]}%"
+        f"강수확률 최대 "
+        f"{daily['precipitation_probability_max'][0]}%"
     )
 
     st.write(
@@ -779,7 +913,8 @@ with day2:
     )
 
     st.write(
-        f"강수확률 최대 {daily['precipitation_probability_max'][1]}%"
+        f"강수확률 최대 "
+        f"{daily['precipitation_probability_max'][1]}%"
     )
 
     st.write(
@@ -787,20 +922,20 @@ with day2:
     )
 
 
-# =====================================
-# 18. 하단 안내
-# =====================================
+# ==========================================
+# 21. 하단 안내
+# ==========================================
 
 st.divider()
 
 st.caption(
-    "🌤️ 날씨 알리미 | 날씨 데이터: Open-Meteo"
+    "🌤️ 날씨 알리미 | 날씨 및 대기질 데이터: Open-Meteo"
 )
 
 st.caption(
-    "날씨 및 대기질 정보는 예측 자료로 실제 관측값과 차이가 날 수 있습니다."
+    "예보 및 대기질 자료는 실제 관측값과 차이가 날 수 있습니다."
 )
 
 st.caption(
-    "지역 좌표는 대표 위치이며, 일부 지역만 제공됩니다."
+    "지역 좌표는 대표 위치이며, 현재 일부 지역만 제공됩니다."
 )
